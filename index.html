@@ -338,320 +338,323 @@
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted } = Vue;
-        const SUPABASE_URL = 'https://ksildcqlykdbbpzpncpu.supabase.co';
+		const { createApp, ref, computed, onMounted } = Vue;
+		
+		// 💡 修正 1：將原本錯誤的 1_URL 改回正確且合法的變數名稱 SUPABASE_URL
+		const SUPABASE_URL = 'https://ksildcqlykdbbpzpncpu.supabase.co';
 		const SUPABASE_ANON_KEY = 'sb_publishable_tEGZJR7yU2EsGi4jEX8hUA_-a_nQrct';
-        // 🟢 修正 1：官方全域 SDK 的物件名稱為 supabaseJs
-		const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+		
+		// 💡 修正 2：確保這裡傳入的是正確的 SUPABASE_URL 變數
+		const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        createApp({
-            setup() {
-                const currentTab = ref('home');
-                const suppliers = ref([]);
-                const products = ref([]);
-                const historyRecords = ref([]);
-                const quotationItems = ref([{ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false }]);
-                const selectedCategory = ref('');
-                const printModeData = ref(null);
-                const quoteMeta = ref({ customerName: '', issuer: '', summary: '' });
+		createApp({
+			setup() {
+				const currentTab = ref('home');
+				const suppliers = ref([]);
+				const products = ref([]);
+				const historyRecords = ref([]);
+				const quotationItems = ref([{ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false }]);
+				const selectedCategory = ref('');
+				const printModeData = ref(null);
+				const quoteMeta = ref({ customerName: '', issuer: '', summary: '' });
 
-                const hideDropdownWithDelay = (index) => {
-                    setTimeout(() => {
-                        if (quotationItems.value[index]) {
-                            quotationItems.value[index].showDropdown = false;
-                        }
-                    }, 200);
-                };
+				const hideDropdownWithDelay = (index) => {
+					setTimeout(() => {
+						if (quotationItems.value[index]) {
+							quotationItems.value[index].showDropdown = false;
+						}
+					}, 200);
+				};
 
-                const dateFilter = ref({ start: '', end: '' });
-                const clearDateFilter = () => { dateFilter.value = { start: '', end: '' }; };
+				const dateFilter = ref({ start: '', end: '' });
+				const clearDateFilter = () => { dateFilter.value = { start: '', end: '' }; };
 
-                const filteredHistoryRecords = computed(() => {
-                    if (!dateFilter.value.start && !dateFilter.value.end) {
-                        return historyRecords.value;
-                    }
-                    return historyRecords.value.filter(rec => {
-                        if (!rec.created_at) return false;
-                        const recordDate = new Date(rec.created_at);
-                        
-                        const startDate = dateFilter.value.start ? new Date(dateFilter.value.start) : null;
-                        const endDate = dateFilter.value.end ? new Date(dateFilter.value.end) : null;
-                        
-                        recordDate.setHours(0,0,0,0);
-                        if (startDate) startDate.setHours(0,0,0,0);
-                        if (endDate) endDate.setHours(0,0,0,0);
+				const filteredHistoryRecords = computed(() => {
+					if (!dateFilter.value.start && !dateFilter.value.end) {
+						return historyRecords.value;
+					}
+					return historyRecords.value.filter(rec => {
+						if (!rec.created_at) return false;
+						const recordDate = new Date(rec.created_at);
+						
+						const startDate = dateFilter.value.start ? new Date(dateFilter.value.start) : null;
+						const endDate = dateFilter.value.end ? new Date(dateFilter.value.end) : null;
+						
+						recordDate.setHours(0,0,0,0);
+						if (startDate) startDate.setHours(0,0,0,0);
+						if (endDate) endDate.setHours(0,0,0,0);
 
-                        if (startDate && recordDate < startDate) return false;
-                        if (endDate && recordDate > endDate) return false;
-                        
-                        return true;
-                    });
-                });
+						if (startDate && recordDate < startDate) return false;
+						if (endDate && recordDate > endDate) return false;
+						
+						return true;
+					});
+				});
 
-                const newSupplier = ref({ name: '', phone: '', address: '' });
-                const newProdSupplierId = ref('');
-                const newProdCategory = ref('');
-                const newProdName = ref('');
-                const newProdPrice = ref(0);
+				const newSupplier = ref({ name: '', phone: '', address: '' });
+				const newProdSupplierId = ref('');
+				const newProdCategory = ref('');
+				const newProdName = ref('');
+				const newProdPrice = ref(0);
 
-                const modal = ref({ show: false, title: '', content: {}, onConfirm: null });
+				const modal = ref({ show: false, title: '', content: {}, onConfirm: null });
 
-                const fetchInitialData = async () => {
-                    try {
-                        const { data: supData, error: supErr } = await supabase.from('suppliers').select('*').order('name');
-                        if (supErr) throw supErr;
-                        suppliers.value = supData;
+				const fetchInitialData = async () => {
+					try {
+						const { data: supData, error: supErr } = await db.from('suppliers').select('*').order('name');
+						if (supErr) throw supErr;
+						suppliers.value = supData;
 
-                        const { data: prodData, error: prodErr } = await supabase.from('products').select('*').order('name');
-                        if (prodErr) throw prodErr;
-                        products.value = prodData;
-                    } catch (err) { 
-                        console.error('Supabase 讀取初始資料失敗:', err.message); 
-                    }
-                };
+						const { data: prodData, error: prodErr } = await db.from('products').select('*').order('name');
+						if (prodErr) throw prodErr;
+						products.value = prodData;
+					} catch (err) { 
+						console.error('Supabase 讀取初始資料失敗:', err.message); 
+					}
+				};
 
-                const fetchHistory = async () => {
-                    try {
-                        const { data, error } = await supabase.from('quotations').select('*').order('id', { ascending: false });
-                        if (error) throw error;
-                        
-                        historyRecords.value = data.map(r => ({
-                            id: r.id,
-                            quote_number: r.quote_number,
-                            created_at: new Date(r.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
-                            total_amount: r.total_amount,
-                            customer_name: r.customer_name,
-                            issuer: r.issuer,
-                            summary: r.summary,
-                            items: typeof r.items_json === 'string' ? JSON.parse(r.items_json) : (r.items_json.items || r.items_json)
-                        }));
-                    } catch (err) { 
-                        console.error('Supabase 讀取歷史單據失敗:', err.message); 
-                    }
-                };
+				const fetchHistory = async () => {
+					try {
+						const { data, error } = await db.from('quotations').select('*').order('id', { ascending: false });
+						if (error) throw error;
+						
+						historyRecords.value = data.map(r => ({
+							id: r.id,
+							quote_number: r.quote_number,
+							created_at: new Date(r.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+							total_amount: r.total_amount,
+							customer_name: r.customer_name,
+							issuer: r.issuer,
+							summary: r.summary,
+							items: typeof r.items_json === 'string' ? JSON.parse(r.items_json) : (r.items_json.items || r.items_json)
+						}));
+					} catch (err) { 
+						console.error('Supabase 讀取歷史單據失敗:', err.message); 
+					}
+				};
 
-                onMounted(() => { fetchInitialData(); });
+				onMounted(() => { fetchInitialData(); });
 
-                const calculateSubtotal = (item) => (item.price * (item.quantity || 0));
-                const validQuotationItems = computed(() => quotationItems.value.filter(item => item.productId));
-                const totalAmount = computed(() => validQuotationItems.value.reduce((sum, item) => sum + calculateSubtotal(item), 0));
+				const calculateSubtotal = (item) => (item.price * (item.quantity || 0));
+				const validQuotationItems = computed(() => quotationItems.value.filter(item => item.productId));
+				const totalAmount = computed(() => validQuotationItems.value.reduce((sum, item) => sum + calculateSubtotal(item), 0));
 
-                const getAvailableProducts = (supplierId) => products.value.filter(p => p.supplier_id ? p.supplier_id.toString() === supplierId.toString() : false);
-                const onSupplierChange = (index) => {
-                    quotationItems.value[index].productId = ''; quotationItems.value[index].price = 0; quotationItems.value[index].searchQuery = '';
-                };
-                const getFilteredProducts = (item) => {
-                    const available = getAvailableProducts(item.supplierId);
-                    if (!item.searchQuery) return available;
-                    return available.filter(p => p.name.toLowerCase().includes(item.searchQuery.toLowerCase()));
-                };
-                const selectRecommendedProduct = (index, product) => {
-                    const item = quotationItems.value[index];
-                    item.productId = product.id; item.price = product.price; item.searchQuery = product.name; item.showDropdown = false;
-                };
+				const getAvailableProducts = (supplierId) => products.value.filter(p => p.supplier_id ? p.supplier_id.toString() === supplierId.toString() : false);
+				const onSupplierChange = (index) => {
+					quotationItems.value[index].productId = ''; quotationItems.value[index].price = 0; quotationItems.value[index].searchQuery = '';
+				};
+				const getFilteredProducts = (item) => {
+					const available = getAvailableProducts(item.supplierId);
+					if (!item.searchQuery) return available;
+					return available.filter(p => p.name.toLowerCase().includes(item.searchQuery.toLowerCase()));
+				};
+				const selectRecommendedProduct = (index, product) => {
+					const item = quotationItems.value[index];
+					item.productId = product.id; item.price = product.price; item.searchQuery = product.name; item.showDropdown = false;
+				};
 
-                // 🟢 修正 2：補上型態轉換防呆，防止因數字與字串比對失敗而跳出「未知廠商」
-                const getSupplierName = (id) => {
-                    if (!id) return '未知廠商';
-                    return suppliers.value.find(sup => sup.id.toString() === id.toString())?.name || '未知廠商';
-                };
-                const getProductNameById = (id) => {
-                    if (!id) return '';
-                    return products.value.find(p => p.id.toString() === id.toString())?.name || '';
-                };
-                const getProductCategoryById = (id) => {
-                    if (!id) return '';
-                    return products.value.find(p => p.id.toString() === id.toString())?.category || '';
-                };
-                const categories = computed(() => [...new Set(products.value.map(p => p.category))]);
-                const sortedComparisonProducts = computed(() => {
-                    if (!selectedCategory.value) return [];
-                    return products.value.filter(p => p.category === selectedCategory.value).sort((a,b) => a.price - b.price);
-                });
+				const getSupplierName = (id) => {
+					if (!id) return '未知廠商';
+					return suppliers.value.find(sup => sup.id.toString() === id.toString())?.name || '未知廠商';
+				};
+				const getProductNameById = (id) => {
+					if (!id) return '';
+					return products.value.find(p => p.id.toString() === id.toString())?.name || '';
+				};
+				const getProductCategoryById = (id) => {
+					if (!id) return '';
+					return products.value.find(p => p.id.toString() === id.toString())?.category || '';
+				};
+				const categories = computed(() => [...new Set(products.value.map(p => p.category))]);
+				const sortedComparisonProducts = computed(() => {
+					if (!selectedCategory.value) return [];
+					return products.value.filter(p => p.category === selectedCategory.value).sort((a,b) => a.price - b.price);
+				});
 
-                const addNewItem = () => {
-                    quotationItems.value.push({ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false });
-                };
+				const addNewItem = () => {
+					quotationItems.value.push({ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false });
+				};
 
-                const removeItem = (index) => {
-                    quotationItems.value.splice(index, 1);
-                };
+				const removeItem = (index) => {
+					quotationItems.value.splice(index, 1);
+				};
 
-                const saveQuotation = async () => {
-                    if (validQuotationItems.value.length === 0) return alert('請至少選擇一項有效的產品項目');
-                    if (!quoteMeta.value.customerName.trim() || !quoteMeta.value.issuer.trim()) {
-                        return alert('請填寫「客戶名稱」與「製單單位」後再行存檔');
-                    }
+				const saveQuotation = async () => {
+					if (validQuotationItems.value.length === 0) return alert('請至少選擇一項有效的產品項目');
+					if (!quoteMeta.value.customerName.trim() || !quoteMeta.value.issuer.trim()) {
+						return alert('請填寫「客戶名稱」與「製單單位」後再行存檔');
+					}
 
-                    try {
-                        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
-                        const randomNum = Math.floor(1000 + Math.random() * 9000);
-                        const quote_number = `LQ${dateStr}-${randomNum}`;
+					try {
+						const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+						const randomNum = Math.floor(1000 + Math.random() * 9000);
+						const quote_number = `LQ${dateStr}-${randomNum}`;
 
-                        const itemsPayload = validQuotationItems.value.map(i => ({ 
-                            supplierId: i.supplierId ? parseInt(i.supplierId) : null, 
-                            productId: i.productId ? parseInt(i.productId) : null, 
-                            quantity: i.quantity, 
-                            price: i.price 
-                        }));
+						const itemsPayload = validQuotationItems.value.map(i => ({ 
+							supplierId: i.supplierId ? parseInt(i.supplierId) : null, 
+							productId: i.productId ? parseInt(i.productId) : null, 
+							quantity: i.quantity, 
+							price: i.price 
+						}));
 
-                        const { data, error } = await supabase.from('quotations').insert([{
-                            quote_number: quote_number,
-                            customer_name: quoteMeta.value.customerName.trim(),
-                            issuer: quoteMeta.value.issuer.trim(),
-                            summary: quoteMeta.value.summary.trim(),
-                            total_amount: totalAmount.value,
-                            items_json: { items: itemsPayload } 
-                        }]).select();
+						const { data, error } = await db.from('quotations').insert([{
+							quote_number: quote_number,
+							customer_name: quoteMeta.value.customerName.trim(),
+							issuer: quoteMeta.value.issuer.trim(),
+							summary: quoteMeta.value.summary.trim(),
+							total_amount: totalAmount.value,
+							items_json: { items: itemsPayload } 
+						}]).select();
 
-                        if (error) throw error;
+						if (error) throw error;
 
-                        printModeData.value = {
-                            quote_number: quote_number,
-                            created_at: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
-                            total_amount: totalAmount.value,
-                            customer_name: quoteMeta.value.customerName.trim(),
-                            issuer: quoteMeta.value.issuer.trim(),
-                            summary: quoteMeta.value.summary.trim(),
-                            items: itemsPayload
-                        };
+						printModeData.value = {
+							quote_number: quote_number,
+							created_at: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+							total_amount: totalAmount.value,
+							customer_name: quoteMeta.value.customerName.trim(),
+							issuer: quoteMeta.value.issuer.trim(),
+							summary: quoteMeta.value.summary.trim(),
+							items: itemsPayload
+						};
 
-                        alert(`雲端估價單成功建檔！單號：${quote_number}`);
-                        
-                        await fetchHistory();
+						alert(`雲端估價單成功建檔！單號：${quote_number}`);
+						
+						await fetchHistory();
 
-                        quoteMeta.value = { customerName: '', issuer: '', summary: '' };
-                        quotationItems.value = [{ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false }];
-                    } catch (err) { 
-                        alert('雲端儲存失敗: ' + err.message); 
-                    }
-                };
+						quoteMeta.value = { customerName: '', issuer: '', summary: '' };
+						quotationItems.value = [{ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false }];
+					} catch (err) { 
+						alert('雲端儲存失敗: ' + err.message); 
+					}
+				};
 
-                const addSupplier = () => {
-                    if (!newSupplier.value.name.trim()) return alert('請填寫廠商名稱');
-                    modal.value = {
-                        show: true, title: '建立供應商確認 (雲端)',
-                        content: { '廠商名稱': newSupplier.value.name, '電話': newSupplier.value.phone, '地址': newSupplier.value.address },
-                        onConfirm: async () => {
-                            const { data, error } = await supabase.from('suppliers').insert([newSupplier.value]).select();
-                            if (error) return alert('新增失敗: ' + error.message);
-                            suppliers.value.push(data[0]);
-                            newSupplier.value = { name: '', phone: '', address: '' };
-                        }
-                    };
-                };
+				const addSupplier = () => {
+					if (!newSupplier.value.name.trim()) return alert('請填寫廠商名稱');
+					modal.value = {
+						show: true, title: '建立供應商確認 (雲端)',
+						content: { '廠商名稱': newSupplier.value.name, '電話': newSupplier.value.phone, '地址': newSupplier.value.address },
+						onConfirm: async () => {
+							const { data, error } = await db.from('suppliers').insert([newSupplier.value]).select();
+							if (error) return alert('新增失敗: ' + error.message);
+							suppliers.value.push(data[0]);
+							newSupplier.value = { name: '', phone: '', address: '' };
+						}
+					};
+				};
 
-                const addProduct = () => {
-                    if (!newProdSupplierId.value || !newProdCategory.value.trim() || !newProdName.value.trim() || newProdPrice.value <= 0) return alert('請完整填寫欄位');
-                    modal.value = {
-                        show: true, title: '建立新產品確認 (雲端)',
-                        content: { '所屬廠商': getSupplierName(parseInt(newProdSupplierId.value)), '類型': newProdCategory.value, '品名': newProdName.value, '單價': `$${newProdPrice.value}` },
-                        onConfirm: async () => {
-                            const { data, error } = await supabase.from('products').insert([{
-                                supplier_id: parseInt(newProdSupplierId.value),
-                                category: newProdCategory.value.trim(),
-                                name: newProdName.value.trim(),
-                                price: newProdPrice.value
-                            }]).select();
-                            if (error) return alert('新增失敗: ' + error.message);
-                            products.value.push(data[0]);
-                            newProdCategory.value = ''; newProdName.value = ''; newProdPrice.value = 0;
-                        }
-                    };
-                };
+				const addProduct = () => {
+					if (!newProdSupplierId.value || !newProdCategory.value.trim() || !newProdName.value.trim() || newProdPrice.value <= 0) return alert('請完整填寫欄位');
+					modal.value = {
+						show: true, title: '建立新產品確認 (雲端)',
+						content: { '所屬廠商': getSupplierName(parseInt(newProdSupplierId.value)), '類型': newProdCategory.value, '品名': newProdName.value, '單價': `$${newProdPrice.value}` },
+						onConfirm: async () => {
+							const { data, error } = await db.from('products').insert([{
+								supplier_id: parseInt(newProdSupplierId.value),
+								category: newProdCategory.value.trim(),
+								name: newProdName.value.trim(),
+								price: newProdPrice.value
+							}]).select();
+							if (error) return alert('新增失敗: ' + error.message);
+							products.value.push(data[0]);
+							newProdCategory.value = ''; newProdName.value = ''; newProdPrice.value = 0;
+						}
+					};
+				};
 
-                const updateSupplier = (sup) => {
-                    modal.value = {
-                        show: true, title: '儲存供應商修改 (雲端)',
-                        content: { '廠商名稱': sup.name, '電話': sup.phone, '地址': sup.address },
-                        onConfirm: async () => {
-                            const { error } = await supabase.from('suppliers').update({
-                                name: sup.name, phone: sup.phone, address: sup.address
-                            }).eq('id', sup.id);
-                            if (error) return alert('修改失敗: ' + error.message);
-                            alert('雲端供應商同步變更成功！');
-                        }
-                    };
-                };
+				const updateSupplier = (sup) => {
+					modal.value = {
+						show: true, title: '儲存供應商修改 (雲端)',
+						content: { '廠商名稱': sup.name, '電話': sup.phone, '地址': sup.address },
+						onConfirm: async () => {
+							const { error } = await db.from('suppliers').update({
+								name: sup.name, phone: sup.phone, address: sup.address
+							}).eq('id', sup.id);
+							if (error) return alert('修改失敗: ' + error.message);
+							alert('雲端供應商同步變更成功！');
+						}
+					};
+				};
 
-                const deleteSupplier = (id) => {
-                    modal.value = {
-                        show: true, title: '⚠️ 警告：永久刪除供應商',
-                        content: { '注意': '將會從雲端永久移除此供應商', '廠商名稱': getSupplierName(id) },
-                        onConfirm: async () => {
-                            const { error } = await supabase.from('suppliers').delete().eq('id', id);
-                            if (error) return alert('刪除失敗: ' + error.message);
-                            suppliers.value = suppliers.value.filter(s => s.id !== id);
-                        }
-                    };
-                };
+				const deleteSupplier = (id) => {
+					modal.value = {
+						show: true, title: '⚠️ 警告：永久刪除供應商',
+						content: { '注意': '將會從雲端永久移除此供應商', '廠商名稱': getSupplierName(id) },
+						onConfirm: async () => {
+							const { error } = await db.from('suppliers').delete().eq('id', id);
+							if (error) return alert('刪除失敗: ' + error.message);
+							suppliers.value = suppliers.value.filter(s => s.id !== id);
+						}
+					};
+				};
 
-                const updateProduct = (prod) => {
-                    modal.value = {
-                        show: true, title: '儲存產品修改 (雲端)',
-                        content: { '品名': prod.name, '類型': prod.category, '新單價': `$${prod.price}` },
-                        onConfirm: async () => {
-                            const { error } = await supabase.from('products').update({
-                                name: prod.name, category: prod.category, price: prod.price
-                            }).eq('id', prod.id);
-                            if (error) return alert('修改失敗: ' + error.message);
-                            alert('雲端產品資費同步變更成功！');
-                        }
-                    };
-                };
+				const updateProduct = (prod) => {
+					modal.value = {
+						show: true, title: '儲存產品修改 (雲端)',
+						content: { '品名': prod.name, '類型': prod.category, '新單價': `$${prod.price}` },
+						onConfirm: async () => {
+							const { error } = await db.from('products').update({
+								name: prod.name, category: prod.category, price: prod.price
+							}).eq('id', prod.id);
+							if (error) return alert('修改失敗: ' + error.message);
+							alert('雲端產品資費同步變更成功！');
+						}
+					};
+				};
 
-                const deleteProduct = (id) => {
-                    const prod = products.value.find(p => p.id === id);
-                    modal.value = {
-                        show: true, title: '⚠️ 確定要從雲端刪除該產品嗎？',
-                        content: { '產品品名': prod ? prod.name : '未知產品' },
-                        onConfirm: async () => {
-                            const { error } = await supabase.from('products').delete().eq('id', id);
-                            if (error) return alert('刪除失敗: ' + error.message);
-                            products.value = products.value.filter(p => p.id !== id);
-                        }
-                    };
-                };
+				const deleteProduct = (id) => {
+					const prod = products.value.find(p => p.id === id);
+					modal.value = {
+						show: true, title: '⚠️ 確定要從雲端刪除該產品嗎？',
+						content: { '產品品名': prod ? prod.name : '未知產品' },
+						onConfirm: async () => {
+							const { error } = await db.from('products').delete().eq('id', id);
+							if (error) return alert('刪除失敗: ' + error.message);
+							products.value = products.value.filter(p => p.id !== id);
+						}
+					};
+				};
 
-                const previewHistory = (record) => {
-                    printModeData.value = record;
-                    currentTab.value = 'home';
-                };
+				const previewHistory = (record) => {
+					printModeData.value = record;
+					currentTab.value = 'home';
+				};
 
-                const triggerPrint = () => { window.print(); };
+				const triggerPrint = () => { window.print(); };
 
-                const numToChinese = (num) => {
-                    if (isNaN(num)) return "";
-                    const digit = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖'];
-                    const unit = [['元', '萬', '億'], ['', '拾', '佰', '仟']];
-                    let s = ''; let numInt = Math.floor(num);
-                    for (let i = 0; i < unit[0].length && numInt > 0; i++) {
-                        let p = '';
-                        for (let j = 0; j < unit[1].length && numInt > 0; j++) {
-                            p = digit[numInt % 10] + unit[1][j] + p;
-                            numInt = Math.floor(numInt / 10);
-                        }
-                        s = p.replace(/(零.)*零$/, '').replace(/^$/, '零') + unit[0][i] + s;
-                    }
-                    s = s.replace(/(零.)*零元/, '元').replace(/(零.)+/g, '零');
-                    return s == '' ? '零元整' : s + '整';
-                };
+				const numToChinese = (num) => {
+					if (isNaN(num)) return "";
+					const digit = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖'];
+					const unit = [['元', '萬', '億'], ['', '拾', '佰', '仟']];
+					let s = ''; let numInt = Math.floor(num);
+					for (let i = 0; i < unit[0].length && numInt > 0; i++) {
+						let p = '';
+						for (let j = 0; j < unit[1].length && numInt > 0; j++) {
+							p = digit[numInt % 10] + unit[1][j] + p;
+							numInt = Math.floor(numInt / 10);
+						}
+						s = p.replace(/(零.)*零$/, '').replace(/^$/, '零') + unit[0][i] + s;
+					}
+					s = s.replace(/(零.)*零元/, '元').replace(/(零.)+/g, '零');
+					return s == '' ? '零元整' : s + '整';
+				};
 
-                const closeModal = (isConfirmed) => {
-                    if (isConfirmed && modal.value.onConfirm) modal.value.onConfirm();
-                    modal.value.show = false;
-                };
+				const closeModal = (isConfirmed) => {
+					if (isConfirmed && modal.value.onConfirm) modal.value.onConfirm();
+					modal.value.show = false;
+				};
 
-                return {
-                    currentTab, suppliers, products, historyRecords, quotationItems, selectedCategory, categories, totalAmount, validQuotationItems, printModeData,
-                    newSupplier, newProdSupplierId, newProdCategory, newProdName, newProdPrice, modal,
-                    currentDate: new Date().toLocaleDateString(),
-                    getAvailableProducts, onSupplierChange, getFilteredProducts, selectRecommendedProduct, calculateSubtotal, getSupplierName, getProductNameById, getProductCategoryById, sortedComparisonProducts,
-                    addNewItem, removeItem, saveQuotation, addSupplier, addProduct, updateSupplier, deleteSupplier, updateProduct, deleteProduct, previewHistory, triggerPrint, numToChinese, closeModal, fetchHistory, quoteMeta,
-                    hideDropdownWithDelay, dateFilter, clearDateFilter, filteredHistoryRecords
-                };
-            }
-        }).mount('#app');
-    </script>
+				// 💡 修正 3：此 return 物件中「不包含」全域的 supabase 變數，完美避免變數衝突與 SyntaxError
+				return {
+					currentTab, suppliers, products, historyRecords, quotationItems, selectedCategory, categories, totalAmount, validQuotationItems, printModeData,
+					newSupplier, newProdSupplierId, newProdCategory, newProdName, newProdPrice, modal, 
+					currentDate: new Date().toLocaleDateString(),
+					getAvailableProducts, onSupplierChange, getFilteredProducts, selectRecommendedProduct, calculateSubtotal, getSupplierName, getProductNameById, getProductCategoryById, sortedComparisonProducts,
+					addNewItem, removeItem, saveQuotation, addSupplier, addProduct, updateSupplier, deleteSupplier, updateProduct, deleteProduct, previewHistory, triggerPrint, numToChinese, closeModal, fetchHistory, quoteMeta,
+					hideDropdownWithDelay, dateFilter, clearDateFilter, filteredHistoryRecords
+				};
+			}
+		}).mount('#app');
+	</script>
 </body>
 </html>
