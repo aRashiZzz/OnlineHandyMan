@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人估價管理系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+	<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        /* 🖨️ 核心列印優化 CSS */
+        @media print {
+            body { background: white; padding: 0; }
+            .no-print { display: none !important; } 
+            .print-area { border: none !important; box-shadow: none !important; width: 100%; max-width: 100%; padding: 0; margin: 0; }
+            @page { size: A4; margin: 1.5cm; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-6">
+
+    <div id="app" class="max-w-6xl mx-auto space-y-6">
+        
+        <header class="no-print border-b pb-4 flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">📋 估價與資料庫維護系統</h1>
+                <p class="text-sm text-gray-500 mt-1">支援動態計算、跨廠比價、歷史單據存檔與 A4 標準紙張列印。</p>
+            </div>
+            <div class="flex bg-gray-200 p-1 rounded-lg text-sm font-medium">
+                <button @click="currentTab = 'home'" :class="currentTab === 'home' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="px-4 py-2 rounded-md transition">新建估價單</button>
+                <button @click="currentTab = 'history'; fetchHistory();" :class="currentTab === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="px-4 py-2 rounded-md transition">📜 歷史估價單</button>
+                <button @click="currentTab = 'admin'" :class="currentTab === 'admin' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="px-4 py-2 rounded-md transition">🔧 資料庫維護</button>
+            </div>
+        </header>
+
+        <div v-if="currentTab === 'home'" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="no-print bg-white p-6 rounded-lg shadow-sm space-y-4">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">填寫項目</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100 mb-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">客戶名稱 (抬頭) *</label>
+                            <input type="text" v-model="quoteMeta.customerName" placeholder="例如：台積電" class="w-full p-2 border rounded bg-white text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">製單單位 (填單人/公司) *</label>
+                            <input type="text" v-model="quoteMeta.issuer" placeholder="例如：王小明" class="w-full p-2 border rounded bg-white text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">摘要說明 (專案名稱)</label>
+                            <input type="text" v-model="quoteMeta.summary" placeholder="例如：採購" class="w-full p-2 border rounded bg-white text-sm">
+                        </div>
+                    </div>
+
+                    <div v-for="(item, index) in quotationItems" :key="index" class="flex flex-wrap gap-3 items-center p-3 bg-gray-50 rounded border border-gray-200">
+                        <div class="flex-1 min-w-[140px]">
+                            <select v-model="item.supplierId" @change="onSupplierChange(index)" class="w-full p-2 border rounded bg-white text-sm">
+                                <option value="">-- 選擇供應商 --</option>
+                                <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
+                            </select>
+                        </div>
+                        <div class="flex-2 min-w-[200px] relative">
+                            <input type="text" v-model="item.searchQuery" @focus="item.showDropdown = true" @blur="hideDropdownWithDelay(index)" :disabled="!item.supplierId" placeholder="輸入關鍵字搜尋產品..." class="w-full p-2 border rounded bg-white text-sm">
+                            <div v-if="item.showDropdown && getFilteredProducts(item).length > 0" class="absolute z-50 left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-white border rounded-md shadow-lg text-sm">
+                                <button v-for="p in getFilteredProducts(item)" :key="p.id" @mousedown="selectRecommendedProduct(index, p)" class="w-full text-left px-3 py-2 hover:bg-blue-50 flex justify-between">
+                                    <span>{{ p.name }}</span> <span class="text-blue-600 font-bold">${{ p.price }}</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="w-20"><input type="number" v-model.number="item.quantity" min="1" class="w-full p-2 border rounded text-sm text-center"></div>
+                        <div class="w-24 text-right text-sm font-semibold text-gray-700">${{ calculateSubtotal(item) }}</div>
+                        <div><button @click="removeItem(index)" class="text-red-500 text-sm font-medium px-1">刪除</button></div>
+                    </div>
+                    <div class="flex justify-between items-center pt-2">
+                        <button @click="addNewItem" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-medium">＋ 新增項目</button>
+                        
+                    </div>
+                </div>
+
+                <div v-if="totalAmount > 0 || printModeData" class="print-area bg-white p-8 rounded-lg shadow-sm border border-gray-300 max-w-[21cm] mx-auto text-black font-sans">
+                    <div class="text-center space-y-1 relative">
+                        <h1 class="text-3xl font-bold tracking-widest text-gray-900">估 價 單</h1>
+                        <p class="text-xs text-gray-500 tracking-wide">QUOTATION</p>
+                        <div class="absolute top-0 right-0 text-left text-xs space-y-1">
+                            <div><span class="text-gray-400">單據號碼：</span><span class="font-mono font-bold text-red-600">{{ printModeData ? printModeData.quote_number : '尚未存檔' }}</span></div>
+                            <div><span class="text-gray-400">估價日期：</span><span>{{ printModeData ? printModeData.created_at : currentDate }}</span></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 border-b-2 border-black pb-4 mt-8 text-sm">
+                        <div class="space-y-1">
+                            <div><strong>客戶名稱：</strong> {{ printModeData ? (printModeData.customer_name || printModeData.customerName || '未指定') : (quoteMeta.customerName || '（請於上方填寫客戶名稱）') }}</div>
+                            <div><strong>摘要說明：</strong> {{ printModeData ? (printModeData.summary || '無') : (quoteMeta.summary || '無') }}</div>
+                        </div>
+                        <div class="space-y-0.5 text-right text-xs text-gray-600">
+                            <div class="font-bold text-sm text-black">製單單位：{{ printModeData ? (printModeData.issuer || '未指定') : (quoteMeta.issuer || '（請於上方填寫製單單位）') }}</div>
+                            <div>本單據由系統自動拋轉生成</div>
+                        </div>
+                    </div>
+
+                    <table class="w-full text-sm text-left mt-6 border-collapse">
+                        <thead>
+                            <tr class="border-b border-black text-gray-700 font-bold bg-gray-50">
+                                <th class="py-2 px-1 text-center w-12">項次</th>
+                                <th class="py-2 px-2">供應商 / 項目名稱</th>
+                                <th class="py-2 px-2">規格類型</th>
+                                <th class="py-2 px-2 text-right w-20">單價</th>
+                                <th class="py-2 px-2 text-center w-16">數量</th>
+                                <th class="py-2 px-2 text-right w-24">小計 (元)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, i) in (printModeData ? printModeData.items : validQuotationItems)" :key="i" class="border-b border-gray-200">
+                                <td class="py-2.5 text-center text-gray-500 font-mono">{{ i + 1 }}</td>
+                                <td class="py-2.5 px-2 font-medium">
+                                    <span class="text-xs text-gray-400 block">[{{ getSupplierName(item.supplierId) }}]</span>
+                                    {{ getProductNameById(item.productId) || '未指定產品' }}
+                                </td>
+                                <td class="py-2.5 px-2 text-gray-600 text-xs">{{ getProductCategoryById(item.productId) }}</td>
+                                <td class="py-2.5 px-2 text-right font-mono">${{ item.price }}</td>
+                                <td class="py-2.5 px-2 text-center font-mono">{{ item.quantity }}</td>
+                                <td class="py-2.5 px-2 text-right font-mono font-semibold">${{ calculateSubtotal(item) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="grid grid-cols-3 items-center border-t border-black mt-6 pt-4 text-sm">
+                        <div class="col-span-2">
+                            <strong>新台幣大寫總計：</strong>
+                            <span class="bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">{{ numToChinese(printModeData ? printModeData.total_amount : totalAmount) }}</span>
+                        </div>
+                        <div class="text-right text-lg font-bold">
+                            總計金額：<span class="text-xl text-blue-700 font-mono">${{ printModeData ? printModeData.total_amount : totalAmount }}</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 text-center text-xs mt-12 pt-8 gap-4 border-t border-dashed">
+                        <div>核准主管：_________________</div>
+                        <div>財務會計：_________________</div>
+                        <div>經手填單：_________________</div>
+                    </div>
+                    
+                    <div class="no-print mt-8 flex justify-center gap-4">
+                        <button @click="triggerPrint" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-md">🖨️ 發送至系統列印 / 另存 PDF</button>
+						<button @click="saveQuotation" :disabled="totalAmount === 0" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-medium disabled:bg-gray-300 shadow-sm">💾 儲存並產出估價單</button>
+                        <button v-if="printModeData" @click="printModeData = null" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium">關閉預覽，返回新建</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="no-print space-y-6">
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-3">🔍 快速比價面板</h2>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">選擇產品類型</label>
+                    <select v-model="selectedCategory" class="w-full p-2 border rounded bg-white text-sm mb-4">
+                        <option value="">-- 請選擇類型 --</option>
+                        <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+                    </select>
+                    <div v-if="selectedCategory" class="space-y-2">
+                        <div v-for="p in sortedComparisonProducts" :key="p.id" class="p-3 border rounded text-sm flex justify-between items-center" :class="{'bg-green-50 border-green-300': p.isCheapest}">
+                            <div>
+                                <div class="font-medium text-gray-800">{{ p.name }}</div>
+                                <div class="text-xs text-gray-500">供應商: {{ getSupplierName(p.supplier_id) }}</div>
+                            </div>
+                            <div class="text-right"><span class="text-base font-bold text-green-600">${{ p.price }}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="currentTab === 'history'" class="no-print bg-white p-6 rounded-lg shadow-sm space-y-4 animate-in fade-in duration-200">
+            <h2 class="text-xl font-bold text-gray-700">📜 本機開立估價單歷史存檔</h2>
+			<div class="no-print flex flex-wrap items-center gap-4 bg-gray-100 p-4 rounded-lg text-sm border">
+                <div class="flex items-center gap-2">
+                    <label class="font-semibold text-gray-700">篩選日期區間：</label>
+                    <input type="date" v-model="dateFilter.start" class="p-2 border rounded bg-white text-gray-700">
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-400">至</span>
+                    <input type="date" v-model="dateFilter.end" class="p-2 border rounded bg-white text-gray-700">
+                </div>
+                <button @click="clearDateFilter" v-if="dateFilter.start || dateFilter.end" class="text-xs bg-white hover:bg-gray-50 text-gray-500 border px-3 py-2 rounded-md transition">
+                    ❌ 清除條件
+                </button>
+                <div class="ml-auto text-xs text-gray-400 font-medium">
+                    符合條件：共 <span class="text-blue-600 font-bold text-sm">{{ filteredHistoryRecords.length }}</span> 筆紀錄
+                </div>
+            </div>
+            <div v-if="historyRecords.length === 0" class="text-center py-8 text-gray-400">目前尚無開單存檔紀錄</div>
+            <div v-else class="overflow-x-auto">
+                <table class="w-full text-sm text-left border">
+                    <thead class="bg-gray-100 text-gray-600 text-xs font-bold uppercase">
+                        <tr>
+                            <th class="p-3 border">單據號碼</th>
+                            <th class="p-3 border">建立日期</th>
+                            <th class="p-3 border">包含項目數量</th>
+                            <th class="p-3 border text-right">總金額</th>
+                            <th class="p-3 border text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="rec in filteredHistoryRecords" :key="rec.id" class="border-b hover:bg-gray-50">
+                            <td class="p-3 border font-mono font-bold text-red-600">{{ rec.quote_number }}</td>
+                            <td class="p-3 border text-gray-600">{{ rec.created_at }}</td>
+                            <td class="p-3 border text-gray-500">{{ rec.items.length }} 筆產品項目</td>
+                            <td class="p-3 border text-right font-bold text-blue-600">${{ rec.total_amount }}</td>
+                            <td class="p-3 border text-center">
+                                <button @click="previewHistory(rec)" class="text-blue-600 hover:text-blue-900 font-medium">調閱單據並列印</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div v-if="currentTab === 'admin'" class="no-print space-y-8 animate-in fade-in duration-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-sm space-y-3">
+                    <h2 class="text-lg font-bold text-gray-700">🏢 新增供應商基本資料</h2>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">廠商名稱 *</label>
+                        <input type="text" v-model="newSupplier.name" placeholder="例如：甲方案包裝廠" class="w-full p-2 border rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">聯絡電話</label>
+                        <input type="text" v-model="newSupplier.phone" placeholder="例如：02-2345-6789" class="w-full p-2 border rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">公司地址</label>
+                        <input type="text" v-model="newSupplier.address" placeholder="例如：台北市信義路五段1號" class="w-full p-2 border rounded text-sm">
+                    </div>
+                    <button @click="addSupplier" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">確認建立供應商</button>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm space-y-3">
+                    <h2 class="text-lg font-bold text-gray-700">📦 上架新產品屬性</h2>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">所屬供應商 *</label>
+                        <select v-model="newProdSupplierId" class="w-full p-2 border rounded bg-white text-sm">
+                            <option value="">請選擇供應商</option>
+                            <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">產品類型 *</label>
+                        <input type="text" v-model="newProdCategory" placeholder="例如：包材、五金零件" class="w-full p-2 border rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">產品品名 *</label>
+                        <input type="text" v-model="newProdName" placeholder="例如：特大加厚紙箱" class="w-full p-2 border rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">約定單價 *</label>
+                        <input type="number" v-model.number="newProdPrice" placeholder="請輸入單價" class="w-full p-2 border rounded text-sm">
+                    </div>
+                    <button @click="addProduct" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">寫入產品資料庫</button>
+                </div>
+            </div>
+
+            <div class="space-y-6 w-full">
+                <div class="bg-white p-6 rounded-lg shadow-sm overflow-x-auto">
+                    <h3 class="text-base font-bold text-gray-700 mb-3">🏢 供應商管理總覽 (可直接在格內修改)</h3>
+                    <table class="w-full text-sm text-left border">
+                        <thead class="bg-gray-100 text-gray-600 text-xs">
+                            <tr>
+                                <th class="p-3 border">ID</th>
+                                <th class="p-3 border">廠商名稱</th>
+                                <th class="p-3 border">電話</th>
+                                <th class="p-3 border">地址</th>
+                                <th class="p-3 border text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="s in suppliers" :key="s.id" class="border-b hover:bg-gray-50">
+                                <td class="p-3 border text-gray-400">#{{ s.id }}</td>
+                                <td class="p-2 border"><input type="text" v-model="s.name" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
+                                <td class="p-2 border"><input type="text" v-model="s.phone" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
+                                <td class="p-2 border"><input type="text" v-model="s.address" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
+                                <td class="p-2 border text-center space-x-2">
+                                    <button @click="updateSupplier(s)" class="text-emerald-600 font-medium hover:text-emerald-800">儲存</button>
+                                    <button @click="deleteSupplier(s.id)" class="text-red-500 font-medium hover:text-red-700">刪除</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm overflow-x-auto">
+                    <h3 class="text-base font-bold text-gray-700 mb-3">📦 產品管理總覽 (可直接在格內修改)</h3>
+                    <table class="w-full text-sm text-left border">
+                        <thead class="bg-gray-100 text-gray-600 text-xs">
+                            <tr>
+                                <th class="p-3 border">供應商</th>
+                                <th class="p-3 border">類型</th>
+                                <th class="p-3 border">品名</th>
+                                <th class="p-3 border">單價</th>
+                                <th class="p-3 border text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="p in products" :key="p.id" class="border-b hover:bg-gray-50">
+                                <td class="p-3 border text-gray-500 bg-gray-50/50">{{ getSupplierName(p.supplier_id) }}</td>
+                                <td class="p-2 border"><input type="text" v-model="p.category" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
+                                <td class="p-2 border"><input type="text" v-model="p.name" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
+                                <td class="p-2 border"><input type="number" v-model.number="p.price" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
+                                <td class="p-2 border text-center space-x-2">
+                                    <button @click="updateProduct(p)" class="text-emerald-600 font-medium hover:text-emerald-800">儲存</button>
+                                    <button @click="deleteProduct(p.id)" class="text-red-500 font-medium hover:text-red-700">刪除</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm"></div>
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative z-10 border border-gray-100">
+                <div class="flex items-center gap-3 border-b pb-3 mb-4">
+                    <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">📌</div>
+                    <h3 class="text-lg font-bold text-gray-800">{{ modal.title }}</h3>
+                </div>
+                <div class="text-sm text-gray-600 space-y-2 bg-gray-50 p-4 rounded-lg">
+                    <div v-for="(val, key) in modal.content" :key="key" class="flex">
+                        <span class="w-24 font-medium text-gray-400 shrink-0">{{ key }}：</span>
+                        <span class="text-gray-800 font-medium">{{ val }}</span>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button @click="closeModal(false)" class="px-4 py-2 border rounded-lg text-sm text-gray-500 bg-white hover:bg-gray-50">取消</button>
+                    <button @click="closeModal(true)" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm">確認執行</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+        const SUPABASE_URL = 'https://ksildcqlykdbbpzpncpu.supabase.co';
+		const SUPABASE_ANON_KEY = 'sb_publishable_tEGZJR7yU2EsGi4jEX8hUA_-a_nQrct';
+		const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        createApp({
+            setup() {
+                const currentTab = ref('home');
+                const suppliers = ref([]);
+                const products = ref([]);
+                const historyRecords = ref([]);
+                const quotationItems = ref([{ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false }]);
+                const selectedCategory = ref('');
+                const printModeData = ref(null);
+                const quoteMeta = ref({ customerName: '', issuer: '', summary: '' });
+
+                const hideDropdownWithDelay = (index) => {
+                    setTimeout(() => {
+                        if (quotationItems.value[index]) {
+                            quotationItems.value[index].showDropdown = false;
+                        }
+                    }, 200);
+                };
+
+                const dateFilter = ref({ start: '', end: '' });
+                const clearDateFilter = () => { dateFilter.value = { start: '', end: '' }; };
+
+                // 日期篩選計算屬性 (相容 Supabase 預設的 ISO 8601 時間字串格式)
+                const filteredHistoryRecords = computed(() => {
+                    if (!dateFilter.value.start && !dateFilter.value.end) {
+                        return historyRecords.value;
+                    }
+                    return historyRecords.value.filter(rec => {
+                        if (!rec.created_at) return false;
+                        const recordDate = new Date(rec.created_at);
+                        
+                        const startDate = dateFilter.value.start ? new Date(dateFilter.value.start) : null;
+                        const endDate = dateFilter.value.end ? new Date(dateFilter.value.end) : null;
+                        
+                        recordDate.setHours(0,0,0,0);
+                        if (startDate) startDate.setHours(0,0,0,0);
+                        if (endDate) endDate.setHours(0,0,0,0);
+
+                        if (startDate && recordDate < startDate) return false;
+                        if (endDate && recordDate > endDate) return false;
+                        
+                        return true;
+                    });
+                });
+
+                const newSupplier = ref({ name: '', phone: '', address: '' });
+                const newProdSupplierId = ref('');
+                const newProdCategory = ref('');
+                const newProdName = ref('');
+                const newProdPrice = ref(0);
+
+                const modal = ref({ show: false, title: '', content: {}, onConfirm: null });
+
+                // --- 2. 升級：Supabase 雲端資料撈取 ---
+                const fetchInitialData = async () => {
+                    try {
+                        // 橫向一次撈取供應商與產品清單 (依名稱排序)
+                        const { data: supData, error: supErr } = await supabase.from('suppliers').select('*').order('name');
+                        if (supErr) throw supErr;
+                        suppliers.value = supData;
+
+                        const { data: prodData, error: prodErr } = await supabase.from('products').select('*').order('name');
+                        if (prodErr) throw prodErr;
+                        products.value = prodData;
+                    } catch (err) { 
+                        console.error('Supabase 讀取初始資料失敗:', err.message); 
+                    }
+                };
+
+                const fetchHistory = async () => {
+                    try {
+                        // 撈取歷程並以降序(最新在最前)呈現
+                        const { data, error } = await supabase.from('quotations').select('*').order('id', { ascending: false });
+                        if (error) throw error;
+                        
+                        // 將 Supabase 的 JSONB 明細欄位映射轉換
+                        historyRecords.value = data.map(r => ({
+                            id: r.id,
+                            quote_number: r.quote_number,
+                            created_at: new Date(r.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+                            total_amount: r.total_amount,
+                            customer_name: r.customer_name,
+                            issuer: r.issuer,
+                            summary: r.summary,
+                            items: typeof r.items_json === 'string' ? JSON.parse(r.items_json) : (r.items_json.items || r.items_json)
+                        }));
+                    } catch (err) { 
+                        console.error('Supabase 讀取歷史單據失敗:', err.message); 
+                    }
+                };
+
+                onMounted(() => { fetchInitialData(); });
+
+                // --- 3. 基礎表單互動邏輯 ---
+                const calculateSubtotal = (item) => (item.price * (item.quantity || 0));
+                const validQuotationItems = computed(() => quotationItems.value.filter(item => item.productId));
+                const totalAmount = computed(() => validQuotationItems.value.reduce((sum, item) => sum + calculateSubtotal(item), 0));
+
+                const getAvailableProducts = (supplierId) => products.value.filter(p => p.supplier_id === parseInt(supplierId));
+                const onSupplierChange = (index) => {
+                    quotationItems.value[index].productId = ''; quotationItems.value[index].price = 0; quotationItems.value[index].searchQuery = '';
+                };
+                const getFilteredProducts = (item) => {
+                    const available = getAvailableProducts(item.supplierId);
+                    if (!item.searchQuery) return available;
+                    return available.filter(p => p.name.toLowerCase().includes(item.searchQuery.toLowerCase()));
+                };
+                const selectRecommendedProduct = (index, product) => {
+                    const item = quotationItems.value[index];
+                    item.productId = product.id; item.price = product.price; item.searchQuery = product.name; item.showDropdown = false;
+                };
+
+                const getSupplierName = (id) => (suppliers.value.find(sup => sup.id === parseInt(id))?.name || '未知廠商');
+                const getProductNameById = (id) => (products.value.find(p => p.id === parseInt(id))?.name || '');
+                const getProductCategoryById = (id) => (products.value.find(p => p.id === parseInt(id))?.category || '');
+                const categories = computed(() => [...new Set(products.value.map(p => p.category))]);
+                const sortedComparisonProducts = computed(() => {
+                    if (!selectedCategory.value) return [];
+                    return products.value.filter(p => p.category === selectedCategory.value).sort((a,b) => a.price - b.price);
+                });
+
+                const addNewItem = () => {
+                    quotationItems.value.push({ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false });
+                };
+
+                const removeItem = (index) => {
+                    quotationItems.value.splice(index, 1);
+                };
+
+                // --- 4. 升級：Supabase 估價單存檔系統 ---
+                const saveQuotation = async () => {
+                    if (validQuotationItems.value.length === 0) return alert('請至少選擇一項有效的產品項目');
+                    if (!quoteMeta.value.customerName.trim() || !quoteMeta.value.issuer.trim()) {
+                        return alert('請填寫「客戶名稱」與「製單單位」後再行存檔');
+                    }
+
+                    try {
+                        // 線上自動生成唯一流水單號
+                        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+                        const randomNum = Math.floor(1000 + Math.random() * 9000);
+                        const quote_number = `LQ${dateStr}-${randomNum}`;
+
+                        const itemsPayload = validQuotationItems.value.map(i => ({ 
+                            supplierId: parseInt(i.supplierId), 
+                            productId: parseInt(i.productId), 
+                            quantity: i.quantity, 
+                            price: i.price 
+                        }));
+
+                        // 直接寫入 Supabase 雲端資料表
+                        const { data, error } = await supabase.from('quotations').insert([{
+                            quote_number: quote_number,
+                            customer_name: quoteMeta.value.customerName.trim(),
+                            issuer: quoteMeta.value.issuer.trim(),
+                            summary: quoteMeta.value.summary.trim(),
+                            total_amount: totalAmount.value,
+                            items_json: { items: itemsPayload } // 妥善包裝成 JSONB 寫入
+                        }]).select();
+
+                        if (error) throw error;
+
+                        // 同步刷新至 A4 預覽列印區並防漏接
+                        printModeData.value = {
+                            quote_number: quote_number,
+                            created_at: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+                            total_amount: totalAmount.value,
+                            customer_name: quoteMeta.value.customerName.trim(),
+                            issuer: quoteMeta.value.issuer.trim(),
+                            summary: quoteMeta.value.summary.trim(),
+                            items: itemsPayload
+                        };
+
+                        alert(`雲端估價單成功建檔！單號：${quote_number}`);
+                        
+                        await fetchHistory();
+
+                        quoteMeta.value = { customerName: '', issuer: '', summary: '' };
+                        quotationItems.value = [{ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false }];
+                    } catch (err) { 
+                        alert('雲端儲存失敗: ' + err.message); 
+                    }
+                };
+
+                // --- 5. 升級：資料庫後台維護系統 (Supabase 直連 CRUD) ---
+                const addSupplier = () => {
+                    if (!newSupplier.value.name.trim()) return alert('請填寫廠商名稱');
+                    modal.value = {
+                        show: true, title: '建立供應商確認 (雲端)',
+                        content: { '廠商名稱': newSupplier.value.name, '電話': newSupplier.value.phone, '地址': newSupplier.value.address },
+                        onConfirm: async () => {
+                            const { data, error } = await supabase.from('suppliers').insert([newSupplier.value]).select();
+                            if (error) return alert('新增失敗: ' + error.message);
+                            suppliers.value.push(data[0]);
+                            newSupplier.value = { name: '', phone: '', address: '' };
+                        }
+                    };
+                };
+
+                const addProduct = () => {
+                    if (!newProdSupplierId.value || !newProdCategory.value.trim() || !newProdName.value.trim() || newProdPrice.value <= 0) return alert('請完整填寫欄位');
+                    modal.value = {
+                        show: true, title: '建立新產品確認 (雲端)',
+                        content: { '所屬廠商': getSupplierName(parseInt(newProdSupplierId.value)), '類型': newProdCategory.value, '品名': newProdName.value, '單價': `$${newProdPrice.value}` },
+                        onConfirm: async () => {
+                            const { data, error } = await supabase.from('products').insert([{
+                                supplier_id: parseInt(newProdSupplierId.value),
+                                category: newProdCategory.value.trim(),
+                                name: newProdName.value.trim(),
+                                price: newProdPrice.value
+                            }]).select();
+                            if (error) return alert('新增失敗: ' + error.message);
+                            products.value.push(data[0]);
+                            newProdCategory.value = ''; newProdName.value = ''; newProdPrice.value = 0;
+                        }
+                    };
+                };
+
+                const updateSupplier = (sup) => {
+                    modal.value = {
+                        show: true, title: '儲存供應商修改 (雲端)',
+                        content: { '廠商名稱': sup.name, '電話': sup.phone, '地址': sup.address },
+                        onConfirm: async () => {
+                            const { error } = await supabase.from('suppliers').update({
+                                name: sup.name, phone: sup.phone, address: sup.address
+                            }).eq('id', sup.id);
+                            if (error) return alert('修改失敗: ' + error.message);
+                            alert('雲端供應商同步變更成功！');
+                        }
+                    };
+                };
+
+                const deleteSupplier = (id) => {
+                    modal.value = {
+                        show: true, title: '⚠️ 警告：永久刪除供應商',
+                        content: { '注意': '將會從雲端永久移除此供應商', '廠商名稱': getSupplierName(id) },
+                        onConfirm: async () => {
+                            const { error } = await supabase.from('suppliers').delete().eq('id', id);
+                            if (error) return alert('刪除失敗: ' + error.message);
+                            suppliers.value = suppliers.value.filter(s => s.id !== id);
+                        }
+                    };
+                };
+
+                const updateProduct = (prod) => {
+                    modal.value = {
+                        show: true, title: '儲存產品修改 (雲端)',
+                        content: { '品名': prod.name, '類型': prod.category, '新單價': `$${prod.price}` },
+                        onConfirm: async () => {
+                            const { error } = await supabase.from('products').update({
+                                name: prod.name, category: prod.category, price: prod.price
+                            }).eq('id', prod.id);
+                            if (error) return alert('修改失敗: ' + error.message);
+                            alert('雲端產品資費同步變更成功！');
+                        }
+                    };
+                };
+
+                const deleteProduct = (id) => {
+                    const prod = products.value.find(p => p.id === id);
+                    modal.value = {
+                        show: true, title: '⚠️ 確定要從雲端刪除該產品嗎？',
+                        content: { '產品品名': prod ? prod.name : '未知產品' },
+                        onConfirm: async () => {
+                            const { error } = await supabase.from('products').delete().eq('id', id);
+                            if (error) return alert('刪除失敗: ' + error.message);
+                            products.value = products.value.filter(p => p.id !== id);
+                        }
+                    };
+                };
+
+                const previewHistory = (record) => {
+                    printModeData.value = record;
+                    currentTab.value = 'home';
+                };
+
+                const triggerPrint = () => { window.print(); };
+
+                const numToChinese = (num) => {
+                    if (isNaN(num)) return "";
+                    const digit = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖'];
+                    const unit = [['元', '萬', '億'], ['', '拾', '佰', '仟']];
+                    let s = ''; let numInt = Math.floor(num);
+                    for (let i = 0; i < unit[0].length && numInt > 0; i++) {
+                        let p = '';
+                        for (let j = 0; j < unit[1].length && numInt > 0; j++) {
+                            p = digit[numInt % 10] + unit[1][j] + p;
+                            numInt = Math.floor(numInt / 10);
+                        }
+                        s = p.replace(/(零.)*零$/, '').replace(/^$/, '零') + unit[0][i] + s;
+                    }
+                    s = s.replace(/(零.)*零元/, '元').replace(/(零.)+/g, '零');
+                    return s == '' ? '零元整' : s + '整';
+                };
+
+                const closeModal = (isConfirmed) => {
+                    if (isConfirmed && modal.value.onConfirm) modal.value.onConfirm();
+                    modal.value.show = false;
+                };
+
+                return {
+                    currentTab, suppliers, products, historyRecords, quotationItems, selectedCategory, categories, totalAmount, validQuotationItems, printModeData,
+                    newSupplier, newProdSupplierId, newProdCategory, newProdName, newProdPrice, modal,
+                    currentDate: new Date().toLocaleDateString(),
+                    getAvailableProducts, onSupplierChange, getFilteredProducts, selectRecommendedProduct, calculateSubtotal, getSupplierName, getProductNameById, getProductCategoryById, sortedComparisonProducts,
+                    addNewItem, removeItem, saveQuotation, addSupplier, addProduct, updateSupplier, deleteSupplier, updateProduct, deleteProduct, previewHistory, triggerPrint, numToChinese, closeModal, fetchHistory, quoteMeta,
+                    hideDropdownWithDelay, dateFilter, clearDateFilter, filteredHistoryRecords
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
