@@ -74,7 +74,6 @@
                     </div>
                     <div class="flex justify-between items-center pt-2">
                         <button @click="addNewItem" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-medium">＋ 新增項目</button>
-                        
                     </div>
                 </div>
 
@@ -221,15 +220,15 @@
                     <h2 class="text-lg font-bold text-gray-700">🏢 新增供應商基本資料</h2>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">廠商名稱 *</label>
-                        <input type="text" v-model="newSupplier.name" placeholder="例如：甲方案包裝廠" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newSupplier.name" placeholder="example：甲方案包裝廠" class="w-full p-2 border rounded text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">聯絡電話</label>
-                        <input type="text" v-model="newSupplier.phone" placeholder="例如：02-2345-6789" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newSupplier.phone" placeholder="example：02-2345-6789" class="w-full p-2 border rounded text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">公司地址</label>
-                        <input type="text" v-model="newSupplier.address" placeholder="例如：台北市信義路五段1號" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newSupplier.address" placeholder="example：台北市信義路五段1號" class="w-full p-2 border rounded text-sm">
                     </div>
                     <button @click="addSupplier" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">確認建立供應商</button>
                 </div>
@@ -245,11 +244,11 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">產品類型 *</label>
-                        <input type="text" v-model="newProdCategory" placeholder="例如：包材、五金零件" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newProdCategory" placeholder="example：包材、五金零件" class="w-full p-2 border rounded text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">產品品名 *</label>
-                        <input type="text" v-model="newProdName" placeholder="例如：特大加厚紙箱" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newProdName" placeholder="example：特大加厚紙箱" class="w-full p-2 border rounded text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">約定單價 *</label>
@@ -342,7 +341,8 @@
         const { createApp, ref, computed, onMounted } = Vue;
         const SUPABASE_URL = 'https://ksildcqlykdbbpzpncpu.supabase.co';
 		const SUPABASE_ANON_KEY = 'sb_publishable_tEGZJR7yU2EsGi4jEX8hUA_-a_nQrct';
-		const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // 🟢 修正 1：官方全域 SDK 的物件名稱為 supabaseJs
+		const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         createApp({
             setup() {
@@ -366,7 +366,6 @@
                 const dateFilter = ref({ start: '', end: '' });
                 const clearDateFilter = () => { dateFilter.value = { start: '', end: '' }; };
 
-                // 日期篩選計算屬性 (相容 Supabase 預設的 ISO 8601 時間字串格式)
                 const filteredHistoryRecords = computed(() => {
                     if (!dateFilter.value.start && !dateFilter.value.end) {
                         return historyRecords.value;
@@ -397,10 +396,8 @@
 
                 const modal = ref({ show: false, title: '', content: {}, onConfirm: null });
 
-                // --- 2. 升級：Supabase 雲端資料撈取 ---
                 const fetchInitialData = async () => {
                     try {
-                        // 橫向一次撈取供應商與產品清單 (依名稱排序)
                         const { data: supData, error: supErr } = await supabase.from('suppliers').select('*').order('name');
                         if (supErr) throw supErr;
                         suppliers.value = supData;
@@ -415,11 +412,9 @@
 
                 const fetchHistory = async () => {
                     try {
-                        // 撈取歷程並以降序(最新在最前)呈現
                         const { data, error } = await supabase.from('quotations').select('*').order('id', { ascending: false });
                         if (error) throw error;
                         
-                        // 將 Supabase 的 JSONB 明細欄位映射轉換
                         historyRecords.value = data.map(r => ({
                             id: r.id,
                             quote_number: r.quote_number,
@@ -437,12 +432,11 @@
 
                 onMounted(() => { fetchInitialData(); });
 
-                // --- 3. 基礎表單互動邏輯 ---
                 const calculateSubtotal = (item) => (item.price * (item.quantity || 0));
                 const validQuotationItems = computed(() => quotationItems.value.filter(item => item.productId));
                 const totalAmount = computed(() => validQuotationItems.value.reduce((sum, item) => sum + calculateSubtotal(item), 0));
 
-                const getAvailableProducts = (supplierId) => products.value.filter(p => p.supplier_id === parseInt(supplierId));
+                const getAvailableProducts = (supplierId) => products.value.filter(p => p.supplier_id ? p.supplier_id.toString() === supplierId.toString() : false);
                 const onSupplierChange = (index) => {
                     quotationItems.value[index].productId = ''; quotationItems.value[index].price = 0; quotationItems.value[index].searchQuery = '';
                 };
@@ -456,9 +450,19 @@
                     item.productId = product.id; item.price = product.price; item.searchQuery = product.name; item.showDropdown = false;
                 };
 
-                const getSupplierName = (id) => (suppliers.value.find(sup => sup.id === parseInt(id))?.name || '未知廠商');
-                const getProductNameById = (id) => (products.value.find(p => p.id === parseInt(id))?.name || '');
-                const getProductCategoryById = (id) => (products.value.find(p => p.id === parseInt(id))?.category || '');
+                // 🟢 修正 2：補上型態轉換防呆，防止因數字與字串比對失敗而跳出「未知廠商」
+                const getSupplierName = (id) => {
+                    if (!id) return '未知廠商';
+                    return suppliers.value.find(sup => sup.id.toString() === id.toString())?.name || '未知廠商';
+                };
+                const getProductNameById = (id) => {
+                    if (!id) return '';
+                    return products.value.find(p => p.id.toString() === id.toString())?.name || '';
+                };
+                const getProductCategoryById = (id) => {
+                    if (!id) return '';
+                    return products.value.find(p => p.id.toString() === id.toString())?.category || '';
+                };
                 const categories = computed(() => [...new Set(products.value.map(p => p.category))]);
                 const sortedComparisonProducts = computed(() => {
                     if (!selectedCategory.value) return [];
@@ -473,7 +477,6 @@
                     quotationItems.value.splice(index, 1);
                 };
 
-                // --- 4. 升級：Supabase 估價單存檔系統 ---
                 const saveQuotation = async () => {
                     if (validQuotationItems.value.length === 0) return alert('請至少選擇一項有效的產品項目');
                     if (!quoteMeta.value.customerName.trim() || !quoteMeta.value.issuer.trim()) {
@@ -481,31 +484,28 @@
                     }
 
                     try {
-                        // 線上自動生成唯一流水單號
                         const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
                         const randomNum = Math.floor(1000 + Math.random() * 9000);
                         const quote_number = `LQ${dateStr}-${randomNum}`;
 
                         const itemsPayload = validQuotationItems.value.map(i => ({ 
-                            supplierId: parseInt(i.supplierId), 
-                            productId: parseInt(i.productId), 
+                            supplierId: i.supplierId ? parseInt(i.supplierId) : null, 
+                            productId: i.productId ? parseInt(i.productId) : null, 
                             quantity: i.quantity, 
                             price: i.price 
                         }));
 
-                        // 直接寫入 Supabase 雲端資料表
                         const { data, error } = await supabase.from('quotations').insert([{
                             quote_number: quote_number,
                             customer_name: quoteMeta.value.customerName.trim(),
                             issuer: quoteMeta.value.issuer.trim(),
                             summary: quoteMeta.value.summary.trim(),
                             total_amount: totalAmount.value,
-                            items_json: { items: itemsPayload } // 妥善包裝成 JSONB 寫入
+                            items_json: { items: itemsPayload } 
                         }]).select();
 
                         if (error) throw error;
 
-                        // 同步刷新至 A4 預覽列印區並防漏接
                         printModeData.value = {
                             quote_number: quote_number,
                             created_at: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
@@ -527,7 +527,6 @@
                     }
                 };
 
-                // --- 5. 升級：資料庫後台維護系統 (Supabase 直連 CRUD) ---
                 const addSupplier = () => {
                     if (!newSupplier.value.name.trim()) return alert('請填寫廠商名稱');
                     modal.value = {
