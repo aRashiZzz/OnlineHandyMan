@@ -15,32 +15,40 @@
             .print-area { border: none !important; box-shadow: none !important; width: 100%; max-width: 100%; padding: 0; margin: 0; }
             @page { size: A4; margin: 1.5cm; }
         }
+        /* 隱藏行動端橫向滾動條提示，優化視覺 */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 2px;
+        }
     </style>
 </head>
-<body class="bg-gray-50 p-6">
+<body class="bg-gray-50 p-3 sm:p-6">
 
-    <div id="app" class="max-w-6xl mx-auto space-y-6">
+    <div id="app" class="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         
-        <header class="no-print border-b pb-4 flex flex-wrap justify-between items-center gap-4">
+        <header class="no-print border-b pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800">📋 估價與資料庫維護系統</h1>
-                <p class="text-sm text-gray-500 mt-1">支援動態計算、跨廠比價、歷史單據存檔與 A4 標準紙張列印。</p>
+                <h1 class="text-xl sm:text-2xl font-bold text-gray-800">📋 估價與資料庫維護系統</h1>
+                <p class="text-xs sm:text-sm text-gray-500 mt-1">支援動態計算、跨廠比價、歷史單據存檔與 A4 標準紙張列印。</p>
             </div>
-            <div class="flex bg-gray-200 p-1 rounded-lg text-sm font-medium">
-                <button @click="currentTab = 'home'" :class="currentTab === 'home' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="px-4 py-2 rounded-md transition">新建估價單</button>
-                <button @click="currentTab = 'history'; fetchHistory();" :class="currentTab === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="px-4 py-2 rounded-md transition">📜 歷史估價單</button>
-                <button @click="currentTab = 'admin'" :class="currentTab === 'admin' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="px-4 py-2 rounded-md transition">🔧 資料庫維護</button>
+            <div class="flex w-full md:w-auto bg-gray-200 p-1 rounded-lg text-xs sm:text-sm font-medium">
+                <button @click="currentTab = 'home'" :class="currentTab === 'home' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="flex-1 md:flex-none px-3 sm:px-4 py-2 rounded-md transition text-center">新建估價單</button>
+                <button @click="currentTab = 'history'; fetchHistory();" :class="currentTab === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="flex-1 md:flex-none px-3 sm:px-4 py-2 rounded-md transition text-center">📜 歷史</button>
+                <button @click="currentTab = 'admin'" :class="currentTab === 'admin' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'" class="flex-1 md:flex-none px-3 sm:px-4 py-2 rounded-md transition text-center">🔧 維護</button>
             </div>
         </header>
 
         <!-- ==================== 分頁一：新建估價單 ==================== -->
-        <div v-if="currentTab === 'home'" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-6">
+        <div v-if="currentTab === 'home'" class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+            <div class="lg:col-span-2 space-y-4 sm:space-y-6">
                 <!-- 填寫表單區 -->
-                <div class="no-print bg-white p-6 rounded-lg shadow-sm space-y-4">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-2">填寫項目</h2>
+                <div class="no-print bg-white p-4 sm:p-6 rounded-lg shadow-sm space-y-4">
+                    <h2 class="text-lg sm:text-xl font-semibold text-gray-700 mb-2">填寫項目</h2>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/50 p-4 rounded-lg border border-blue-100 mb-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-blue-50/50 p-3 sm:p-4 rounded-lg border border-blue-100 mb-4">
                         <div>
                             <label class="block text-xs font-bold text-gray-600 mb-1">客戶名稱 (抬頭) *</label>
                             <input type="text" v-model="quoteMeta.customerName" placeholder="例如：台積電" class="w-full p-2 border rounded bg-white text-sm">
@@ -56,18 +64,20 @@
                     </div>
 
                     <!-- 🚀 功能 1：大項群組清單 -->
-                    <div v-for="(group, gIndex) in quotationGroups" :key="gIndex" class="border border-gray-300 rounded-lg p-4 bg-white space-y-3 shadow-xs relative">
-                        <div class="flex items-center gap-3 border-b pb-2">
-                            <span class="text-sm font-bold text-gray-500">粗項 {{ gIndex + 1 }}:</span>
-                            <input type="text" v-model="group.groupName" placeholder="輸入粗項名稱 (例如：一樓泥作工程、客廳材料)" class="flex-1 p-1.5 border-b border-gray-300 focus:border-blue-500 bg-transparent text-sm font-semibold text-gray-800 outline-hidden">
-                            <button @click="removeGroup(gIndex)" class="text-xs text-red-500 hover:text-red-700 font-medium">刪除此粗項</button>
+                    <div v-for="(group, gIndex) in quotationGroups" :key="gIndex" class="border border-gray-300 rounded-lg p-3 sm:p-4 bg-white space-y-3 shadow-xs relative">
+                        <div class="flex flex-wrap items-center gap-2 border-b pb-2">
+                            <span class="text-xs sm:text-sm font-bold text-gray-500">粗項 {{ gIndex + 1 }}:</span>
+                            <input type="text" v-model="group.groupName" placeholder="輸入粗項名稱" class="flex-1 min-w-[150px] p-1.5 border-b border-gray-300 focus:border-blue-500 bg-transparent text-sm font-semibold text-gray-800 outline-hidden">
+                            <button @click="removeGroup(gIndex)" class="text-xs text-red-500 hover:text-red-700 font-medium ml-auto">刪除此粗項</button>
                         </div>
 
-                        <!-- 大項內部的細項清單 -->
-                        <div v-for="(item, iIndex) in group.items" :key="iIndex" class="flex flex-wrap gap-2 items-center p-2.5 bg-gray-50 rounded border border-gray-200 text-xs">
-                            <!-- 功能 2：類型切換 -->
-                            <div class="w-20">
-                                <select v-model="item.type" @change="onTypeChange(gIndex, iIndex)" class="w-full p-1.5 border rounded bg-white">
+                        <!-- 大項內部的細項清單 (手機版改為 Grid 排版，徹底解決擠壓問題) -->
+                        <div v-for="(item, iIndex) in group.items" :key="iIndex" class="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 items-end p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs">
+                            
+                            <!-- 類型切換 -->
+                            <div class="col-span-1 sm:w-24">
+                                <label class="block text-[10px] text-gray-400 font-medium mb-1 sm:hidden">類型</label>
+                                <select v-model="item.type" @change="onTypeChange(gIndex, iIndex)" class="w-full p-2 border rounded bg-white h-9">
                                     <option value="product">📦 產品</option>
                                     <option value="service">🛠️ 服務</option>
                                 </select>
@@ -75,248 +85,244 @@
 
                             <!-- 產品模式的廠商與搜尋 -->
                             <template v-if="item.type === 'product'">
-                                <div class="w-32">
-                                    <select v-model="item.supplierId" @change="onSupplierChange(gIndex, iIndex)" class="w-full p-1.5 border rounded bg-white">
+                                <div class="col-span-1 sm:w-32">
+                                    <label class="block text-[10px] text-gray-400 font-medium mb-1 sm:hidden">供應商</label>
+                                    <select v-model="item.supplierId" @change="onSupplierChange(gIndex, iIndex)" class="w-full p-2 border rounded bg-white h-9">
                                         <option value="">選擇供應商</option>
                                         <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
                                     </select>
                                 </div>
-                                <div class="flex-1 min-w-[150px] relative">
-                                    <input type="text" v-model="item.searchQuery" @focus="item.showDropdown = true" @blur="hideDropdownWithDelay(gIndex, iIndex)" :disabled="!item.supplierId" placeholder="搜尋資料庫產品..." class="w-full p-1.5 border rounded bg-white">
+                                <div class="col-span-2 sm:flex-1 sm:min-w-[150px] relative">
+                                    <label class="block text-[10px] text-gray-400 font-medium mb-1 sm:hidden">搜尋產品</label>
+                                    <input type="text" v-model="item.searchQuery" @focus="item.showDropdown = true" @blur="hideDropdownWithDelay(gIndex, iIndex)" :disabled="!item.supplierId" placeholder="搜尋資料庫產品..." class="w-full p-2 border rounded bg-white h-9">
                                     <div v-if="item.showDropdown && getFilteredProducts(item).length > 0" class="absolute z-50 left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-white border rounded shadow-lg">
-                                        <button v-for="p in getFilteredProducts(item)" :key="p.id" @mousedown="selectRecommendedProduct(gIndex, iIndex, p)" class="w-full text-left px-3 py-1.5 hover:bg-blue-50 flex justify-between">
+                                        <button v-for="p in getFilteredProducts(item)" :key="p.id" @mousedown="selectRecommendedProduct(gIndex, iIndex, p)" class="w-full text-left px-3 py-1.5 hover:bg-blue-50 flex justify-between text-xs">
                                             <span>{{ p.name }}</span> <span class="text-blue-600 font-bold">${{ p.price }}</span>
                                         </button>
                                     </div>
                                 </div>
                             </template>
 
-                            <!-- 服務模式：直接手寫客製化名稱 -->
+                            <!-- 服務模式 -->
                             <template v-else>
-                                <div class="flex-1 min-w-[250px]">
-                                    <input type="text" v-model="item.customName" placeholder="直接輸入服務或工程描述 (例如：房間油漆、冷氣清洗)" class="w-full p-1.5 border rounded bg-white">
+                                <div class="col-span-2 sm:flex-1 sm:min-w-[200px]">
+                                    <label class="block text-[10px] text-gray-400 font-medium mb-1 sm:hidden">服務描述</label>
+                                    <input type="text" v-model="item.customName" placeholder="直接輸入服務或工程描述" class="w-full p-2 border rounded bg-white h-9">
                                 </div>
                             </template>
 
-                            <!-- 🚀 ✨ 新增：常駐顯示原始進價提示區 -->
-                            <div class="w-24 flex flex-col justify-center text-left px-1">
+                            <!-- 常駐顯示原始進價提示區 -->
+                            <div class="col-span-1 sm:w-20 flex flex-col justify-center text-left px-1 h-9">
                                 <span class="text-[10px] text-gray-400 font-medium select-none">原始進價</span>
-                                <span class="text-xs text-gray-600 font-mono font-semibold">
+                                <span class="text-xs text-gray-600 font-mono font-semibold pt-0.5">
                                     {{ item.type === 'product' && item.productId ? '$' + (item.cost !== undefined ? item.cost : getProductPriceById(item.productId)) : '—' }}
                                 </span>
                             </div>
 
-                            <!-- 自訂售價輸入框 (調整寬度使其更美觀) -->
-                            <div class="w-24 flex flex-col">
-                                <span class="text-[10px] text-blue-500 font-medium mb-0.5 no-print select-none">調整售價</span>
-                                <input type="number" v-model.number="item.price" placeholder="售價" class="w-full p-1.5 border rounded text-right font-semibold text-blue-600" title="可自由調整最終售價">
+                            <!-- 自訂售價 -->
+                            <div class="col-span-1 sm:w-24 flex flex-col">
+                                <span class="text-[10px] text-blue-500 font-medium mb-1 select-none">調整售價</span>
+                                <input type="number" v-model.number="item.price" placeholder="售價" class="w-full p-2 border rounded text-right font-semibold text-blue-600 h-9" title="可自由調整最終售價">
                             </div>
 
-                            <!-- 數量輸入框 -->
-                            <div class="w-16 flex flex-col">
-                                <span class="text-[10px] text-gray-400 font-medium mb-0.5 no-print select-none">數量</span>
-                                <input type="number" v-model.number="item.quantity" min="1" class="w-full p-1.5 border rounded text-center">
+                            <!-- 數量 -->
+                            <div class="col-span-1 sm:w-16 flex flex-col ml-auto sm:ml-0 w-full">
+                                <span class="text-[10px] text-gray-400 font-medium mb-1 select-none">數量</span>
+                                <input type="number" v-model.number="item.quantity" min="1" class="w-full p-2 border rounded text-center h-9">
                             </div>
                         </div>
-                        <button @click="addNewItem(gIndex)" class="text-xs bg-gray-50 hover:bg-gray-100 text-blue-600 px-3 py-1.5 rounded border border-dashed border-gray-300 font-medium">＋ 新增細項</button>
+                        <button @click="addNewItem(gIndex)" class="w-full sm:w-auto text-xs bg-gray-50 hover:bg-gray-100 text-blue-600 px-3 py-2 rounded border border-dashed border-gray-300 font-medium transition">＋ 新增細項</button>
                     </div>
 
-                    <div class="flex justify-between items-center pt-2">
-                        <button @click="addNewGroup" class="bg-gray-800 hover:bg-gray-950 text-white px-4 py-2 rounded text-sm font-medium shadow-xs">＋ 新增分類粗項</button>
-                        <button @click="saveQuotation" :disabled="totalAmount === 0" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-medium disabled:bg-gray-300 shadow-sm">💾 儲存並產出估價單</button>
+                    <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 pt-2">
+                        <button @click="addNewGroup" class="bg-gray-800 hover:bg-gray-950 text-white px-4 py-2.5 rounded text-sm font-medium shadow-xs transition text-center">＋ 新增分類粗項</button>
+                        <button @click="saveQuotation" :disabled="totalAmount === 0" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded text-sm font-medium disabled:bg-gray-300 shadow-sm transition text-center">💾 儲存並產出估價單</button>
                     </div>
                 </div>
 
-                <!-- 🖨️ 標準 A4 估價單預覽列印區 -->
-                <div v-if="totalAmount > 0 || printModeData" class="print-area bg-white p-8 rounded-lg shadow-sm border border-gray-300 max-w-[21cm] mx-auto text-black font-sans">
-                    <div class="text-center space-y-1 relative">
-                        <h1 class="text-3xl font-bold tracking-widest text-gray-900">估 價 單</h1>
-                        <p class="text-xs text-gray-500 tracking-wide">QUOTATION</p>
-                        <div class="absolute top-0 right-0 text-left text-xs space-y-1">
-                            <div><span class="text-gray-400">單據號碼：</span><span class="font-mono font-bold text-red-600">{{ printModeData ? printModeData.quote_number : '尚未存檔' }}</span></div>
-                            <div><span class="text-gray-400">估價日期：</span><span>{{ printModeData ? printModeData.created_at : currentDate }}</span></div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4 border-b-2 border-black pb-4 mt-8 text-sm">
-                        <div class="space-y-1">
-                            <div><strong>客戶名稱：</strong> {{ printModeData ? (printModeData.customer_name || '未指定') : (quoteMeta.customerName || '（請於上方填寫客戶名稱）') }}</div>
-                            <div><strong>摘要說明：</strong> {{ printModeData ? (printModeData.summary || '無') : (quoteMeta.summary || '無') }}</div>
-                        </div>
-                        <div class="space-y-0.5 text-right text-xs text-gray-600">
-                            <div class="font-bold text-sm text-black">製單單位：{{ printModeData ? (printModeData.issuer || '未指定') : (quoteMeta.issuer || '（請於上方填寫製單單位）') }}</div>
-                            <div>本單據由系統自動拋轉生成</div>
-                        </div>
-                    </div>
-
-                    <!-- 🚀 A4 呈現：依據大項群組渲染的表格 -->
-                    <div v-for="(group, gIdx) in (printModeData ? printModeData.groups : filteredQuotationGroups)" :key="gIdx" class="mt-6">
-                        <h3 class="text-sm font-bold bg-gray-100 p-2 border-l-4 border-gray-800 text-gray-800 mb-2">
-                            {{ group.groupName || '未命名粗項' }}
-                        </h3>
-                        <table class="w-full text-sm text-left border-collapse">
-                            <thead>
-                                <tr class="border-b border-black text-gray-700 font-bold bg-gray-50/50 text-xs">
-                                    <th class="py-2 px-1 text-center w-12">項次</th>
-                                    <th class="py-2 px-2">項目名稱 / 描述</th>
-                                    <th class="py-2 px-2 w-24">規格類型</th>
-                                    <th class="py-2 px-2 text-right w-24">單價</th>
-                                    <th class="py-2 px-2 text-center w-16">數量</th>
-                                    <th class="py-2 px-2 text-right w-24">小計 (元)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="(item, iIdx) in group.items" :key="iIdx" class="border-b border-gray-200 text-xs">
-                                    <td class="py-2.5 text-center text-gray-500 font-mono">{{ iIdx + 1 }}</td>
-                                    <td class="py-2.5 px-2 font-medium">
-                                        <template v-if="item.type === 'product'">
-                                            <span class="text-[10px] text-gray-400 block">[{{ getSupplierName(item.supplierId) }}]</span>
-                                            {{ getProductNameById(item.productId) || '未指定產品' }}
-                                        </template>
-                                        <template v-else>
-                                            <span class="text-[10px] text-blue-500 block">[🛠️ 專案服務]</span>
-                                            {{ item.customName || '未填寫服務內容' }}
-                                        </template>
-                                    </td>
-                                    <td class="py-2.5 px-2 text-gray-600 text-[11px]">
-                                        {{ item.type === 'product' ? getProductCategoryById(item.productId) : '現場施工/服務' }}
-                                    </td>
-                                    <td class="py-2.5 px-2 text-right font-mono">${{ item.price }}</td>
-                                    <td class="py-2.5 px-2 text-center font-mono">{{ item.quantity }}</td>
-                                    <td class="py-2.5 px-2 text-right font-mono font-semibold">${{ calculateSubtotal(item) }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="grid grid-cols-3 items-center border-t border-black mt-6 pt-4 text-sm">
-                        <div class="col-span-2">
-                            <strong>新台幣大寫總計：</strong>
-                            <span class="bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">{{ numToChinese(printModeData ? printModeData.total_amount : totalAmount) }}</span>
-                        </div>
-                        <div class="text-right text-lg font-bold">
-                            總計金額：<span class="text-xl text-blue-700 font-mono">${{ printModeData ? printModeData.total_amount : totalAmount }}</span>
-                        </div>
-                    </div>
-
-                    <!-- 🟢 修正後：全新商用合約條款與經手人區塊 -->
-                    <div class="border-t border-black mt-8 pt-4 text-xs space-y-3">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- 左側：付款與稅金條款 (輸入框在列印時會自動去除邊框，像印刷字一樣) -->
-                            <div class="space-y-2">
-                                <div class="flex items-start gap-1">
-                                    <strong class="shrink-0 pt-1">付款方式：</strong>
-                                    <textarea :value="printModeData ? printModeData.paymentTerms : quoteMeta.paymentTerms" @input="!printModeData ? quoteMeta.paymentTerms = $event.target.value : null" rows="2" ...></textarea>
-                                </div>
-                                <div class="flex items-center gap-4">
-                                    <strong>本估價單價格：</strong>
-                                    <label class="flex items-center gap-1 cursor-pointer">
-                                        <!-- 含稅 -->
-										<input type="radio" :name="'taxType_print'" :checked="printModeData ? printModeData.taxType === 'included' : quoteMeta.taxType === 'included'" @change="!printModeData ? quoteMeta.taxType = 'included' : null" :disabled="printModeData" class="w-3 h-3">
-                                        <span>含稅</span>
-                                    </label>
-                                    <label class="flex items-center gap-1 cursor-pointer">
-                                        <!-- 不含稅 -->
-										<input type="radio" :name="'taxType_print'" :checked="printModeData ? printModeData.taxType === 'excluded' : quoteMeta.taxType === 'excluded'" @change="!printModeData ? quoteMeta.taxType = 'excluded' : null" :disabled="printModeData" class="w-3 h-3">
-                                        <span>不含稅</span>
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <!-- 右側：僅保留經手人簽章區 -->
-                            <div class="flex items-end justify-end pb-2">
-                                <!-- 🟢 修正後：專為手寫簽名、蓋章設計的留白欄位 -->
-								<div class="text-right tracking-wider flex justify-end items-center gap-1">
-									<span>經手填單人：</span>
-									<span class="inline-block border-b border-black text-center font-mono font-bold tracking-widest text-transparent select-none print:text-transparent" style="width: 150px; min-height: 24px;">
-										＿＿＿＿＿＿＿＿
-									</span>
-								</div>
+                <!-- 🖨️ 標準 A4 估價單預覽列印區 (外層加上行動端縮放與滾動優化) -->
+                <div v-if="totalAmount > 0 || printModeData" class="w-full overflow-x-auto custom-scrollbar bg-white p-2 sm:p-4 rounded-lg shadow-xs border">
+                    <p class="text-[11px] text-gray-400 text-center mb-2 sm:hidden">💡 行動裝置網頁版僅供預覽，列印請點擊下方按鈕或使用電腦</p>
+                    <div class="print-area bg-white p-4 sm:p-8 rounded-md text-black font-sans min-w-[700px] sm:min-w-0 max-w-[21cm] mx-auto">
+                        <div class="text-center space-y-1 relative">
+                            <h1 class="text-2xl sm:text-3xl font-bold tracking-widest text-gray-900">估 價 單</h1>
+                            <p class="text-xs text-gray-500 tracking-wide">QUOTATION</p>
+                            <div class="absolute top-0 right-0 text-left text-xs space-y-1">
+                                <div><span class="text-gray-400">單據號碼：</span><span class="font-mono font-bold text-red-600">{{ printModeData ? printModeData.quote_number : '尚未存檔' }}</span></div>
+                                <div><span class="text-gray-400">估價日期：</span><span>{{ printModeData ? printModeData.created_at : currentDate }}</span></div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="no-print mt-8 flex justify-center gap-4">
-                        <button @click="triggerPrint" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-md">🖨️ 發送至系統列印 / 另存 PDF</button>
-                        <button v-if="printModeData" @click="printModeData = null" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium">關閉預覽，返回新建</button>
+
+                        <div class="grid grid-cols-2 gap-4 border-b-2 border-black pb-4 mt-8 text-sm">
+                            <div class="space-y-1">
+                                <div><strong>客戶名稱：</strong> {{ printModeData ? (printModeData.customer_name || '未指定') : (quoteMeta.customerName || '（請於上方填寫客戶名稱）') }}</div>
+                                <div><strong>摘要說明：</strong> {{ printModeData ? (printModeData.summary || '無') : (quoteMeta.summary || '無') }}</div>
+                            </div>
+                            <div class="space-y-0.5 text-right text-xs text-gray-600">
+                                <div class="font-bold text-sm text-black">製單單位：{{ printModeData ? (printModeData.issuer || '未指定') : (quoteMeta.issuer || '（請於上方填寫製單單位）') }}</div>
+                                <div>本單據由系統自動拋轉生成</div>
+                            </div>
+                        </div>
+
+                        <!-- 依據大項群組渲染的表格 -->
+                        <div v-for="(group, gIdx) in (printModeData ? printModeData.groups : filteredQuotationGroups)" :key="gIdx" class="mt-6">
+                            <h3 class="text-sm font-bold bg-gray-100 p-2 border-l-4 border-gray-800 text-gray-800 mb-2">
+                                {{ group.groupName || '未命名粗項' }}
+                            </h3>
+                            <table class="w-full text-sm text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-black text-gray-700 font-bold bg-gray-50/50 text-xs">
+                                        <th class="py-2 px-1 text-center w-12">項次</th>
+                                        <th class="py-2 px-2">項目名稱 / 描述</th>
+                                        <th class="py-2 px-2 w-24">規格類型</th>
+                                        <th class="py-2 px-2 text-right w-24">單價</th>
+                                        <th class="py-2 px-2 text-center w-16">數量</th>
+                                        <th class="py-2 px-2 text-right w-24">小計 (元)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(item, iIdx) in group.items" :key="iIdx" class="border-b border-gray-200 text-xs">
+                                        <td class="py-2.5 text-center text-gray-500 font-mono">{{ iIdx + 1 }}</td>
+                                        <td class="py-2.5 px-2 font-medium">
+                                            <template v-if="item.type === 'product'">
+                                                <span class="text-[10px] text-gray-400 block">[{{ getSupplierName(item.supplierId) }}]</span>
+                                                {{ getProductNameById(item.productId) || '未指定產品' }}
+                                            </template>
+                                            <template v-else>
+                                                <span class="text-[10px] text-blue-500 block">[🛠️ 專案服務]</span>
+                                                {{ item.customName || '未填寫服務內容' }}
+                                            </template>
+                                        </td>
+                                        <td class="py-2.5 px-2 text-gray-600 text-[11px]">
+                                            {{ item.type === 'product' ? getProductCategoryById(item.productId) : '現場施工/服務' }}
+                                        </td>
+                                        <td class="py-2.5 px-2 text-right font-mono">${{ item.price }}</td>
+                                        <td class="py-2.5 px-2 text-center font-mono">{{ item.quantity }}</td>
+                                        <td class="py-2.5 px-2 text-right font-mono font-semibold">${{ calculateSubtotal(item) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="grid grid-cols-3 items-center border-t border-black mt-6 pt-4 text-sm">
+                            <div class="col-span-2">
+                                <strong>新台幣大寫總計：</strong>
+                                <span class="bg-gray-100 px-2 py-1 rounded text-gray-800 font-medium">{{ numToChinese(printModeData ? printModeData.total_amount : totalAmount) }}</span>
+                            </div>
+                            <div class="text-right text-lg font-bold">
+                                總計金額：<span class="text-xl text-blue-700 font-mono">${{ printModeData ? printModeData.total_amount : totalAmount }}</span>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-black mt-8 pt-4 text-xs space-y-3">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="space-y-2">
+                                    <div class="flex items-start gap-1">
+                                        <strong class="shrink-0 pt-1">付款方式：</strong>
+                                        <textarea :value="printModeData ? printModeData.paymentTerms : quoteMeta.paymentTerms" @input="!printModeData ? quoteMeta.paymentTerms = $event.target.value : null" rows="2" class="w-full p-1 text-xs border rounded bg-transparent resize-none"></textarea>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <strong>本估價單價格：</strong>
+                                        <label class="flex items-center gap-1 cursor-pointer">
+                                            <input type="radio" :name="'taxType_print'" :checked="printModeData ? printModeData.taxType === 'included' : quoteMeta.taxType === 'included'" @change="!printModeData ? quoteMeta.taxType = 'included' : null" :disabled="printModeData" class="w-3 h-3">
+                                            <span>含稅</span>
+                                        </label>
+                                        <label class="flex items-center gap-1 cursor-pointer">
+                                            <input type="radio" :name="'taxType_print'" :checked="printModeData ? printModeData.taxType === 'excluded' : quoteMeta.taxType === 'excluded'" @change="!printModeData ? quoteMeta.taxType = 'excluded' : null" :disabled="printModeData" class="w-3 h-3">
+                                            <span>不含稅</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-end justify-end pb-2">
+                                    <div class="text-right tracking-wider flex justify-end items-center gap-1">
+                                        <span>經手填單人：</span>
+                                        <span class="inline-block border-b border-black text-center font-mono font-bold tracking-widest text-transparent select-none print:text-transparent" style="width: 150px; min-height: 24px;">
+                                            ＿＿＿＿＿＿＿＿
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="no-print mt-8 flex flex-col sm:flex-row justify-center gap-3">
+                            <button @click="triggerPrint" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-md transition text-center">🖨️ 發送至系統列印 / 另存 PDF</button>
+                            <button v-if="printModeData" @click="printModeData = null" class="w-full sm:w-auto bg-gray-500 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition text-center">關閉預覽，返回新建</button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- 右側欄位容器 -->
-            <div class="no-print space-y-6">
+            <div class="no-print space-y-4 sm:space-y-6">
                 <!-- 快速比價面板 -->
-                <div class="bg-white p-6 rounded-lg shadow-sm">
-                    <h2 class="text-lg font-semibold text-gray-700 mb-3">🔍 快速比價面板</h2>
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-700 mb-3">🔍 快速比價面板</h2>
                     <label class="block text-sm font-medium text-gray-600 mb-1">選擇產品類型</label>
                     <select v-model="selectedCategory" class="w-full p-2 border rounded bg-white text-sm mb-4">
                         <option value="">-- 請選擇類型 --</option>
                         <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
                     </select>
-                    <div v-if="selectedCategory" class="space-y-2">
-                        <div v-for="p in sortedComparisonProducts" :key="p.id" class="p-3 border rounded text-sm flex justify-between items-center" :class="{'bg-green-50 border-green-300': p.isCheapest}">
+                    <div v-if="selectedCategory" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                        <div v-for="p in sortedComparisonProducts" :key="p.id" class="p-3 border rounded text-sm flex justify-between items-center bg-white" :class="{'bg-green-50/50 border-green-300': p.isCheapest}">
                             <div>
-                                <div class="font-medium text-gray-800">{{ p.name }}</div>
-                                <div class="text-xs text-gray-500">供應商: {{ getSupplierName(p.supplier_id) }}</div>
+                                <div class="font-medium text-gray-800 text-xs sm:text-sm">{{ p.name }}</div>
+                                <div class="text-[11px] text-gray-500">供應商: {{ getSupplierName(p.supplier_id) }}</div>
                             </div>
-                            <div class="text-right"><span class="text-base font-bold text-green-600">${{ p.price }}</span></div>
+                            <div class="text-right ml-2 shrink-0"><span class="text-sm sm:text-base font-bold text-green-600">${{ p.price }}</span></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 🚀 ✨ 升級：支援歷史調閱雙模式的「利潤分析看板」 -->
-                <div class="bg-white p-6 rounded-lg shadow-sm border space-y-4"
+                <!-- 利潤分析看板 -->
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border space-y-4"
                      :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'bg-emerald-50/20 border-emerald-200' : 'bg-red-50/20 border-red-200'">
                     
-                    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <h2 class="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
                         📊 {{ printModeData ? '📜 歷史單據利潤分析' : '📊 當前開單利潤分析' }}
                     </h2>
                     
                     <div class="space-y-3 text-sm">
-                        <!-- 總營收 -->
                         <div class="flex justify-between items-center border-b border-gray-100 pb-2">
-                            <span class="text-gray-500">總營收 (售價總計)</span>
-                            <span class="text-gray-900 font-bold font-mono text-base">
+                            <span class="text-gray-500 text-xs sm:text-sm">總營收</span>
+                            <span class="text-gray-900 font-bold font-mono text-sm sm:text-base">
                                 ${{ printModeData ? printModeData.total_amount : totalAmount }}
                             </span>
                         </div>
                         
-                        <!-- 預估利潤金額 (主項目) -->
                         <div class="flex justify-between items-center">
-                            <span class="text-gray-900 font-semibold">預估利潤總額</span>
-                            <span class="font-bold font-mono text-lg" 
+                            <span class="text-gray-900 font-semibold text-xs sm:text-sm">預估利潤總額</span>
+                            <span class="font-bold font-mono text-base sm:text-lg" 
                                   :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'text-emerald-600' : 'text-red-600'">
                                 ${{ printModeData ? historyProfitSummary.amount : profitSummary.amount }}
                             </span>
                         </div>
 
-                        <!-- 🛠️ 子項目群組大包裝 (縮排內縮顯得分明) -->
-                        <div class="pl-4 border-l-2 border-gray-200 space-y-1.5 text-xs text-gray-600">
+                        <div class="pl-3 border-l-2 border-gray-200 space-y-1.5 text-[11px] sm:text-xs text-gray-600">
                             <div class="flex justify-between items-center">
-                                <span>├─ 📦 材 料 收 入 (淨利)</span>
+                                <span>├─ 📦 材料淨利</span>
                                 <span class="font-mono font-medium text-gray-700">
                                     ${{ printModeData ? historyProfitSummary.productProfit : profitSummary.productProfit }}
                                 </span>
                             </div>
                             <div class="flex justify-between items-center">
-                                <span>└─ 🛠️ 施 工 收 入 (純利)</span>
+                                <span>└─ 🛠️ 施工純利</span>
                                 <span class="font-mono font-medium text-gray-700">
                                     ${{ printModeData ? historyProfitSummary.serviceProfit : profitSummary.serviceProfit }}
                                 </span>
                             </div>
                         </div>
                         
-                        <!-- 毛利率 -->
                         <div class="flex justify-between items-center pt-2 border-t border-gray-100">
-                            <span class="text-gray-500">全單毛利率</span>
-                            <span class="px-2.5 py-1 rounded-md font-bold font-mono text-sm shadow-xs text-white" 
+                            <span class="text-gray-500 text-xs sm:text-sm">全單毛利率</span>
+                            <span class="px-2 py-0.5 rounded font-bold font-mono text-xs sm:text-sm shadow-xs text-white" 
                                   :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'bg-emerald-600' : 'bg-red-600'">
                                 {{ printModeData ? historyProfitSummary.percentage : profitSummary.percentage }}%
                             </span>
                         </div>
                     </div>
 
-                    <div v-if="printModeData" class="text-[11px] text-blue-600 leading-relaxed bg-blue-50/50 p-2.5 rounded-md border border-blue-200 border-dashed">
+                    <div v-if="printModeData" class="text-[10px] sm:text-[11px] text-blue-600 leading-relaxed bg-blue-50/50 p-2 rounded border border-blue-200 border-dashed">
                         ℹ️ 目前正在檢視歷史單據 <span class="font-mono font-bold">{{ printModeData.quote_number }}</span> 的收益分析。
                     </div>
                 </div>
@@ -324,44 +330,45 @@
         </div>
 
         <!-- ==================== 分頁二：📜 歷史估價單紀錄 ==================== -->
-        <div v-if="currentTab === 'history'" class="no-print bg-white p-6 rounded-lg shadow-sm space-y-4 animate-in fade-in duration-200">
-            <h2 class="text-xl font-bold text-gray-700">📜 本機開立估價單歷史存檔</h2>
-			<div class="no-print flex flex-wrap items-center gap-4 bg-gray-100 p-4 rounded-lg text-sm border">
-                <div class="flex items-center gap-2">
+        <div v-if="currentTab === 'history'" class="no-print bg-white p-4 sm:p-6 rounded-lg shadow-sm space-y-4 animate-in fade-in duration-200">
+            <h2 class="text-lg sm:text-xl font-bold text-gray-700">📜 本機開立估價單歷史存檔</h2>
+			<div class="no-print flex flex-col sm:flex-row sm:items-center gap-3 bg-gray-100 p-3 sm:p-4 rounded-lg text-xs sm:text-sm border">
+                <div class="flex flex-wrap items-center gap-2">
                     <label class="font-semibold text-gray-700">篩選日期區間：</label>
-                    <input type="date" v-model="dateFilter.start" class="p-2 border rounded bg-white text-gray-700">
-                </div>
-                <div class="flex items-center gap-2">
+                    <input type="date" v-model="dateFilter.start" class="p-1.5 border rounded bg-white text-gray-700">
                     <span class="text-gray-400">至</span>
-                    <input type="date" v-model="dateFilter.end" class="p-2 border rounded bg-white text-gray-700">
+                    <input type="date" v-model="dateFilter.end" class="p-1.5 border rounded bg-white text-gray-700">
                 </div>
-                <button @click="clearDateFilter" v-if="dateFilter.start || dateFilter.end" class="text-xs bg-white hover:bg-gray-50 text-gray-500 border px-3 py-2 rounded-md transition">
-                    ❌ 清除條件
-                </button>
-                <div class="ml-auto text-xs text-gray-400 font-medium">
-                    符合條件：共 <span class="text-blue-600 font-bold text-sm">{{ filteredHistoryRecords.length }}</span> 筆紀錄
+                <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto sm:ml-auto gap-2">
+                    <button @click="clearDateFilter" v-if="dateFilter.start || dateFilter.end" class="text-xs bg-white hover:bg-gray-50 text-gray-500 border px-2 py-1.5 rounded transition">
+                        ❌ 清除
+                    </button>
+                    <div class="text-xs text-gray-400 font-medium">
+                        符合條件：共 <span class="text-blue-600 font-bold text-sm">{{ filteredHistoryRecords.length }}</span> 筆
+                    </div>
                 </div>
             </div>
-            <div v-if="historyRecords.length === 0" class="text-center py-8 text-gray-400">目前尚無開單存檔紀錄</div>
-            <div v-else class="overflow-x-auto">
-                <table class="w-full text-sm text-left border">
-                    <thead class="bg-gray-100 text-gray-600 text-xs font-bold uppercase">
+            
+            <div v-if="historyRecords.length === 0" class="text-center py-8 text-gray-400 text-sm">目前尚無開單存檔紀錄</div>
+            <div v-else class="overflow-x-auto custom-scrollbar border rounded-lg">
+                <table class="w-full text-xs sm:text-sm text-left min-w-[600px]">
+                    <thead class="bg-gray-100 text-gray-600 font-bold uppercase border-b">
                         <tr>
-                            <th class="p-3 border">單據號碼</th>
-                            <th class="p-3 border">建立日期</th>
-                            <th class="p-3 border">包含項目數量</th>
-                            <th class="p-3 border text-right">總金額</th>
-                            <th class="p-3 border text-center">操作</th>
+                            <th class="p-3">單據號碼</th>
+                            <th class="p-3">建立日期</th>
+                            <th class="p-3">包含項目數量</th>
+                            <th class="p-3 text-right">總金額</th>
+                            <th class="p-3 text-center">操作</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="rec in filteredHistoryRecords" :key="rec.id" class="border-b hover:bg-gray-50">
-                            <td class="p-3 border font-mono font-bold text-red-600">{{ rec.quote_number }}</td>
-                            <td class="p-3 border text-gray-600">{{ rec.created_at }}</td>
-                            <td class="p-3 border text-gray-500">已分類明細資料</td>
-                            <td class="p-3 border text-right font-bold text-blue-600">${{ rec.total_amount }}</td>
-                            <td class="p-3 border text-center">
-                                <button @click="previewHistory(rec)" class="text-blue-600 hover:text-blue-900 font-medium">調閱單據並列印</button>
+                        <tr v-for="rec in filteredHistoryRecords" :key="rec.id" class="border-b hover:bg-gray-50 bg-white">
+                            <td class="p-3 font-mono font-bold text-red-600">{{ rec.quote_number }}</td>
+                            <td class="p-3 text-gray-600">{{ rec.created_at }}</td>
+                            <td class="p-3 text-gray-500">已分類明細資料</td>
+                            <td class="p-3 text-right font-bold text-blue-600">${{ rec.total_amount }}</td>
+                            <td class="p-3 text-center">
+                                <button @click="previewHistory(rec)" class="text-blue-600 hover:text-blue-900 font-medium transition">調閱與列印</button>
                             </td>
                         </tr>
                     </tbody>
@@ -370,11 +377,11 @@
         </div>
 
         <!-- ==================== 分頁三：🔧 資料庫維護 ==================== -->
-        <div v-if="currentTab === 'admin'" class="no-print space-y-8 animate-in fade-in duration-200">
-            <!-- 原本的資料庫維護面板 (維持不變) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-white p-6 rounded-lg shadow-sm space-y-3">
-                    <h2 class="text-lg font-bold text-gray-700">🏢 新增供應商基本資料</h2>
+        <div v-if="currentTab === 'admin'" class="no-print space-y-6 sm:space-y-8 animate-in fade-in duration-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <!-- 新增供應商 -->
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm space-y-3">
+                    <h2 class="text-base sm:text-lg font-bold text-gray-700">🏢 新增供應商基本資料</h2>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">廠商名稱 *</label>
                         <input type="text" v-model="newSupplier.name" placeholder="例如：甲方案包裝廠" class="w-full p-2 border rounded text-sm">
@@ -387,11 +394,12 @@
                         <label class="block text-xs font-semibold text-gray-500 mb-1">公司地址</label>
                         <input type="text" v-model="newSupplier.address" placeholder="例如：台北市信義路五段1號" class="w-full p-2 border rounded text-sm">
                     </div>
-                    <button @click="addSupplier" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">確認建立供應商</button>
+                    <button @click="addSupplier" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 transition">確認建立供應商</button>
                 </div>
 
-                <div class="bg-white p-6 rounded-lg shadow-sm space-y-3">
-                    <h2 class="text-lg font-bold text-gray-700">📦 上架新產品屬性</h2>
+                <!-- 上架新產品 -->
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm space-y-3">
+                    <h2 class="text-base sm:text-lg font-bold text-gray-700">📦 上架新產品屬性</h2>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">所屬供應商 *</label>
                         <select v-model="newProdSupplierId" class="w-full p-2 border rounded bg-white text-sm">
@@ -411,85 +419,89 @@
                         <label class="block text-xs font-semibold text-gray-500 mb-1">約定單價 *</label>
                         <input type="number" v-model.number="newProdPrice" placeholder="請輸入單價" class="w-full p-2 border rounded text-sm">
                     </div>
-                    <button @click="addProduct" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">寫入產品資料庫</button>
+                    <button @click="addProduct" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700 transition">寫入產品資料庫</button>
                 </div>
             </div>
 
+            <!-- 總覽維護區 -->
             <div class="space-y-6 w-full">
-                <!-- 供應商與產品列表總覽維護區 (維持不變) -->
-                <div class="bg-white p-6 rounded-lg shadow-sm overflow-x-auto">
-                    <h3 class="text-base font-bold text-gray-700 mb-3">🏢 供應商管理總覽 (可直接在格內修改)</h3>
-                    <table class="w-full text-sm text-left border">
-                        <thead class="bg-gray-100 text-gray-600 text-xs">
-                            <tr>
-                                <th class="p-3 border">ID</th>
-                                <th class="p-3 border">廠商名稱</th>
-                                <th class="p-3 border">電話</th>
-                                <th class="p-3 border">地址</th>
-                                <th class="p-3 border text-center">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="s in suppliers" :key="s.id" class="border-b hover:bg-gray-50">
-                                <td class="p-3 border text-gray-400">#{{ s.id }}</td>
-                                <td class="p-2 border"><input type="text" v-model="s.name" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
-                                <td class="p-2 border"><input type="text" v-model="s.phone" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
-                                <td class="p-2 border"><input type="text" v-model="s.address" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
-                                <td class="p-2 border text-center space-x-2">
-                                    <button @click="updateSupplier(s)" class="text-emerald-600 font-medium hover:text-emerald-800">儲存</button>
-                                    <button @click="deleteSupplier(s.id)" class="text-red-500 font-medium hover:text-red-700">刪除</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-sm sm:text-base font-bold text-gray-700 mb-3">🏢 供應商管理總覽 (可直接在格內修改)</h3>
+                    <div class="overflow-x-auto custom-scrollbar border rounded-lg">
+                        <table class="w-full text-xs sm:text-sm text-left min-w-[500px]">
+                            <thead class="bg-gray-100 text-gray-600 border-b">
+                                <tr>
+                                    <th class="p-3 w-16">ID</th>
+                                    <th class="p-3">廠商名稱</th>
+                                    <th class="p-3">電話</th>
+                                    <th class="p-3">地址</th>
+                                    <th class="p-3 text-center w-28">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="s in suppliers" :key="s.id" class="border-b hover:bg-gray-50 bg-white">
+                                    <td class="p-3 text-gray-400 font-mono">#{{ s.id }}</td>
+                                    <td class="p-2"><input type="text" v-model="s.name" class="w-full bg-transparent focus:bg-white p-1 border rounded border-transparent focus:border-gray-300"></td>
+                                    <td class="p-2"><input type="text" v-model="s.phone" class="w-full bg-transparent focus:bg-white p-1 border rounded border-transparent focus:border-gray-300"></td>
+                                    <td class="p-2"><input type="text" v-model="s.address" class="w-full bg-transparent focus:bg-white p-1 border rounded border-transparent focus:border-gray-300"></td>
+                                    <td class="p-2 text-center space-x-2">
+                                        <button @click="updateSupplier(s)" class="text-emerald-600 font-medium hover:text-emerald-800 transition">儲存</button>
+                                        <button @click="deleteSupplier(s.id)" class="text-red-500 font-medium hover:text-red-700 transition">刪除</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-lg shadow-sm overflow-x-auto">
-                    <h3 class="text-base font-bold text-gray-700 mb-3">📦 產品管理總覽 (可直接在格內修改)</h3>
-                    <table class="w-full text-sm text-left border">
-                        <thead class="bg-gray-100 text-gray-600 text-xs">
-                            <tr>
-                                <th class="p-3 border">供應商</th>
-                                <th class="p-3 border">類型</th>
-                                <th class="p-3 border">品名</th>
-                                <th class="p-3 border">單價</th>
-                                <th class="p-3 border text-center">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="p in products" :key="p.id" class="border-b hover:bg-gray-50">
-                                <td class="p-3 border text-gray-500 bg-gray-50/50">{{ getSupplierName(p.supplier_id) }}</td>
-                                <td class="p-2 border"><input type="text" v-model="p.category" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
-                                <td class="p-2 border"><input type="text" v-model="p.name" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
-                                <td class="p-2 border"><input type="number" v-model.number="p.price" class="w-full bg-transparent border-0 focus:bg-white p-1 rounded border-gray-300"></td>
-                                <td class="p-2 border text-center space-x-2">
-                                    <button @click="updateProduct(p)" class="text-emerald-600 font-medium hover:text-emerald-800">儲存</button>
-                                    <button @click="deleteProduct(p.id)" class="text-red-500 font-medium hover:text-red-700">刪除</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm">
+                    <h3 class="text-sm sm:text-base font-bold text-gray-700 mb-3">📦 產品管理總覽 (可直接在格內修改)</h3>
+                    <div class="overflow-x-auto custom-scrollbar border rounded-lg">
+                        <table class="w-full text-xs sm:text-sm text-left min-w-[500px]">
+                            <thead class="bg-gray-100 text-gray-600 border-b">
+                                <tr>
+                                    <th class="p-3">供應商</th>
+                                    <th class="p-3">類型</th>
+                                    <th class="p-3">品名</th>
+                                    <th class="p-3">單價</th>
+                                    <th class="p-3 text-center w-28">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="p in products" :key="p.id" class="border-b hover:bg-gray-50 bg-white">
+                                    <td class="p-3 text-gray-500 bg-gray-50/50 max-w-[120px] truncate">{{ getSupplierName(p.supplier_id) }}</td>
+                                    <td class="p-2"><input type="text" v-model="p.category" class="w-full bg-transparent focus:bg-white p-1 border rounded border-transparent focus:border-gray-300"></td>
+                                    <td class="p-2"><input type="text" v-model="p.name" class="w-full bg-transparent focus:bg-white p-1 border rounded border-transparent focus:border-gray-300"></td>
+                                    <td class="p-2"><input type="number" v-model.number="p.price" class="w-full bg-transparent focus:bg-white p-1 border rounded border-transparent focus:border-gray-300 text-right font-mono"></td>
+                                    <td class="p-2 text-center space-x-2">
+                                        <button @click="updateProduct(p)" class="text-emerald-600 font-medium hover:text-emerald-800 transition">儲存</button>
+                                        <button @click="deleteProduct(p.id)" class="text-red-500 font-medium hover:text-red-700 transition">刪除</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 彈出視窗確認組件 -->
-        <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm"></div>
-            <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative z-10 border border-gray-100">
+        <!-- 彈出視窗確認組件 (RWD 優化寬度與內距) -->
+        <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+            <div class="fixed inset-0 bg-gray-950/40 backdrop-blur-xs"></div>
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-5 sm:p-6 relative z-10 border border-gray-100 animate-in zoom-in-95 duration-150">
                 <div class="flex items-center gap-3 border-b pb-3 mb-4">
-                    <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">📌</div>
-                    <h3 class="text-lg font-bold text-gray-800">{{ modal.title }}</h3>
+                    <div class="p-2 bg-blue-50 text-blue-600 rounded-lg text-sm">📌</div>
+                    <h3 class="text-base sm:text-lg font-bold text-gray-800">{{ modal.title }}</h3>
                 </div>
-                <div class="text-sm text-gray-600 space-y-2 bg-gray-50 p-4 rounded-lg">
-                    <div v-for="(val, key) in modal.content" :key="key" class="flex">
-                        <span class="w-24 font-medium text-gray-400 shrink-0">{{ key }}：</span>
-                        <span class="text-gray-800 font-medium">{{ val }}</span>
+                <div class="text-xs sm:text-sm text-gray-600 space-y-2 bg-gray-50 p-3 sm:p-4 rounded-lg overflow-y-auto max-h-60 custom-scrollbar">
+                    <div v-for="(val, key) in modal.content" :key="key" class="flex flex-col sm:flex-row">
+                        <span class="w-full sm:w-24 font-medium text-gray-400 shrink-0">{{ key }}：</span>
+                        <span class="text-gray-800 font-medium break-all">{{ val }}</span>
                     </div>
                 </div>
-                <div class="flex justify-end gap-3 mt-6">
-                    <button @click="closeModal(false)" class="px-4 py-2 border rounded-lg text-sm text-gray-500 bg-white hover:bg-gray-50">取消</button>
-                    <button @click="closeModal(true)" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm">確認執行</button>
+                <div class="flex justify-end gap-2.5 mt-6">
+                    <button @click="closeModal(false)" class="flex-1 sm:flex-none px-4 py-2 border rounded-lg text-sm text-gray-500 bg-white hover:bg-gray-50 transition text-center">取消</button>
+                    <button @click="closeModal(true)" class="flex-1 sm:flex-none px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm hover:bg-blue-700 transition text-center">確認執行</button>
                 </div>
             </div>
         </div>
@@ -518,12 +530,12 @@
                 const selectedCategory = ref('');
                 const printModeData = ref(null);
                 const quoteMeta = ref({ 
-                    customerName: '', 
-                    issuer: '', 
-                    summary: '',
-                    paymentTerms: '第一期：訂金 30%、第二期：工程完工 70%', // 可自行設定常用的預設文字
-                    taxType: 'excluded' // 預設勾選「不含稅」，可改為 'included' (含稅)
-                });
+				customerName: '', 
+				issuer: '新鑫工程行', // 👈 在這裡直接帶入預設文字
+				summary: '',
+				paymentTerms: '第一期：訂金 30%、第二期：工程完工 70%', 
+				taxType: 'excluded' 
+			});
 
                 const hideDropdownWithDelay = (gIndex, iIndex) => {
                     setTimeout(() => {
