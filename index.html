@@ -268,12 +268,12 @@
                 <div class="bg-white p-6 rounded-lg shadow-sm border space-y-4"
                      :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'bg-emerald-50/20 border-emerald-200' : 'bg-red-50/20 border-red-200'">
                     
-                    <!-- 動態標題 -->
                     <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
                         📊 {{ printModeData ? '📜 歷史單據利潤分析' : '📊 當前開單利潤分析' }}
                     </h2>
                     
                     <div class="space-y-3 text-sm">
+                        <!-- 總營收 -->
                         <div class="flex justify-between items-center border-b border-gray-100 pb-2">
                             <span class="text-gray-500">總營收 (售價總計)</span>
                             <span class="text-gray-900 font-bold font-mono text-base">
@@ -281,15 +281,33 @@
                             </span>
                         </div>
                         
-                        <div class="flex justify-between items-center border-b border-gray-100 pb-2">
-                            <span class="text-gray-500">預估利潤金額</span>
+                        <!-- 預估利潤金額 (主項目) -->
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-900 font-semibold">預估利潤總額</span>
                             <span class="font-bold font-mono text-lg" 
                                   :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'text-emerald-600' : 'text-red-600'">
                                 ${{ printModeData ? historyProfitSummary.amount : profitSummary.amount }}
                             </span>
                         </div>
+
+                        <!-- 🛠️ 子項目群組大包裝 (縮排內縮顯得分明) -->
+                        <div class="pl-4 border-l-2 border-gray-200 space-y-1.5 text-xs text-gray-600">
+                            <div class="flex justify-between items-center">
+                                <span>├─ 📦 材 料 收 入 (淨利)</span>
+                                <span class="font-mono font-medium text-gray-700">
+                                    ${{ printModeData ? historyProfitSummary.productProfit : profitSummary.productProfit }}
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span>└─ 🛠️ 施 工 收 入 (純利)</span>
+                                <span class="font-mono font-medium text-gray-700">
+                                    ${{ printModeData ? historyProfitSummary.serviceProfit : profitSummary.serviceProfit }}
+                                </span>
+                            </div>
+                        </div>
                         
-                        <div class="flex justify-between items-center pt-1">
+                        <!-- 毛利率 -->
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-100">
                             <span class="text-gray-500">全單毛利率</span>
                             <span class="px-2.5 py-1 rounded-md font-bold font-mono text-sm shadow-xs text-white" 
                                   :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'bg-emerald-600' : 'bg-red-600'">
@@ -298,12 +316,8 @@
                         </div>
                     </div>
 
-                    <!-- 狀態說明提醒 -->
                     <div v-if="printModeData" class="text-[11px] text-blue-600 leading-relaxed bg-blue-50/50 p-2.5 rounded-md border border-blue-200 border-dashed">
                         ℹ️ 目前正在檢視歷史單據 <span class="font-mono font-bold">{{ printModeData.quote_number }}</span> 的收益分析。
-                    </div>
-                    <div v-else class="text-[11px] text-gray-400 leading-relaxed bg-white/80 p-2.5 rounded-md border border-dashed">
-                        💡 提示：產品類項目會自動扣除資料庫約定進價成本；手寫的「服務類」項目目前預設為全額純利計算。
                     </div>
                 </div>
             </div>
@@ -652,84 +666,90 @@
                 const removeItem = (gIndex, iIndex) => {
                     quotationGroups.value[gIndex].items.splice(iIndex, 1);
                 };
-				// 🚀 新增核心功能：動態比對資料庫進價，即時計算全單的利潤金額與毛利率 %
+				// 🚀 升級：動態計算當前開單的「材料收入」與「施工收入」
                 const profitSummary = computed(() => {
-                    let totalCost = 0;
-                    let totalSales = 0;
+                    let productSales = 0; // 材料總售價
+                    let productCost = 0;  // 材料總進價成本
+                    let serviceSales = 0; // 施工總收入 (服務類預設成本為 0)
 
-                    // 遍歷所有大項與裡面的有效細項
                     filteredQuotationGroups.value.forEach(group => {
                         group.items.forEach(item => {
                             const itemSales = (item.price || 0) * (item.quantity || 0);
-                            totalSales += itemSales;
 
                             if (item.type === 'product') {
-                                // 產品類：如果 item.cost 存在就使用它，否則去資料庫比對原始價格作為成本
+                                productSales += itemSales;
+                                
+                                // 找回原始進價成本
                                 let originalPrice = item.cost;
                                 if (originalPrice === undefined) {
                                     const dbProd = products.value.find(p => p.id.toString() === item.productId.toString());
                                     originalPrice = dbProd ? dbProd.price : (item.price || 0);
                                 }
-                                totalCost += originalPrice * (item.quantity || 0);
+                                productCost += originalPrice * (item.quantity || 0);
                             } else {
-                                // 服務類：預設手作服務的原始進價成本為 $0 元（即售價全額皆為毛利利潤）
-                                totalCost += 0;
+                                // 服務施工類
+                                serviceSales += itemSales;
                             }
                         });
                     });
 
-                    const profitAmount = totalSales - totalCost;
-                    
-                    // 防止除以 0 的錯誤
+                    const productProfit = productSales - productCost; // 材料淨利
+                    const totalSales = productSales + serviceSales;   // 總營收
+                    const totalProfit = productProfit + serviceSales;  // 總利潤
+
                     let profitPercent = 0;
                     if (totalSales > 0) {
-                        profitPercent = Math.round((profitAmount / totalSales) * 100);
+                        profitPercent = Math.round((totalProfit / totalSales) * 100);
                     }
 
                     return {
-                        amount: profitAmount,
-                        percentage: profitPercent
+                        amount: totalProfit,
+                        percentage: profitPercent,
+                        productProfit: productProfit, // 材料利潤
+                        serviceProfit: serviceSales   // 施工利潤 (純利)
                     };
                 });
-				// 🚀 新增：專門計算「歷史調閱單據」利潤的計算屬性
+				// 🚀 升級：專門計算「歷史調閱單據」細分利潤的計算屬性
                 const historyProfitSummary = computed(() => {
                     if (!printModeData.value || !printModeData.value.groups) {
-                        return { amount: 0, percentage: 0 };
+                        return { amount: 0, percentage: 0, productProfit: 0, serviceProfit: 0 };
                     }
 
-                    let totalCost = 0;
-                    let totalSales = 0;
+                    let productSales = 0;
+                    let productCost = 0;
+                    let serviceSales = 0;
 
-                    // 遍歷歷史單據中儲存的 JSON 階層結構
                     printModeData.value.groups.forEach(group => {
                         group.items.forEach(item => {
                             const itemSales = (item.price || 0) * (item.quantity || 0);
-                            totalSales += itemSales;
 
                             if (item.type === 'product') {
-                                // 從當前資料庫中找出該產品原始進價成本（若產品已被刪除，則以單據當時售價暫代成本）
+                                productSales += itemSales;
                                 const dbProd = products.value.find(p => p.id.toString() === item.productId.toString());
                                 const originalPrice = dbProd ? dbProd.price : (item.price || 0);
-                                totalCost += originalPrice * (item.quantity || 0);
+                                productCost += originalPrice * (item.quantity || 0);
                             } else {
-                                // 服務類成本預設為 0
-                                totalCost += 0;
+                                serviceSales += itemSales;
                             }
                         });
                     });
 
-                    const profitAmount = totalSales - totalCost;
+                    const productProfit = productSales - productCost;
+                    const totalSales = productSales + serviceSales;
+                    const totalProfit = productProfit + serviceSales;
+
                     let profitPercent = 0;
                     if (totalSales > 0) {
-                        profitPercent = Math.round((profitAmount / totalSales) * 100);
+                        profitPercent = Math.round((totalProfit / totalSales) * 100);
                     }
 
                     return {
-                        amount: profitAmount,
-                        percentage: profitPercent
+                        amount: totalProfit,
+                        percentage: profitPercent,
+                        productProfit: productProfit,
+                        serviceProfit: serviceSales
                     };
                 });
-
                 // --- 雲端儲存系統 ---
                 const saveQuotation = async () => {
                     if (filteredQuotationGroups.value.length === 0) return alert('請確認已填寫粗項名稱，且至少包含一項有效明細');
