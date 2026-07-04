@@ -58,9 +58,9 @@
                     <!-- 🚀 功能 1：大項群組清單 -->
                     <div v-for="(group, gIndex) in quotationGroups" :key="gIndex" class="border border-gray-300 rounded-lg p-4 bg-white space-y-3 shadow-xs relative">
                         <div class="flex items-center gap-3 border-b pb-2">
-                            <span class="text-sm font-bold text-gray-500">大項 {{ gIndex + 1 }}:</span>
-                            <input type="text" v-model="group.groupName" placeholder="輸入大項名稱 (例如：一樓泥作工程、客廳材料)" class="flex-1 p-1.5 border-b border-gray-300 focus:border-blue-500 bg-transparent text-sm font-semibold text-gray-800 outline-hidden">
-                            <button @click="removeGroup(gIndex)" class="text-xs text-red-500 hover:text-red-700 font-medium">刪除此大項</button>
+                            <span class="text-sm font-bold text-gray-500">粗項 {{ gIndex + 1 }}:</span>
+                            <input type="text" v-model="group.groupName" placeholder="輸入粗項名稱 (例如：一樓泥作工程、客廳材料)" class="flex-1 p-1.5 border-b border-gray-300 focus:border-blue-500 bg-transparent text-sm font-semibold text-gray-800 outline-hidden">
+                            <button @click="removeGroup(gIndex)" class="text-xs text-red-500 hover:text-red-700 font-medium">刪除此粗項</button>
                         </div>
 
                         <!-- 大項內部的細項清單 -->
@@ -122,7 +122,7 @@
                     </div>
 
                     <div class="flex justify-between items-center pt-2">
-                        <button @click="addNewGroup" class="bg-gray-800 hover:bg-gray-950 text-white px-4 py-2 rounded text-sm font-medium shadow-xs">＋ 新增分類大項</button>
+                        <button @click="addNewGroup" class="bg-gray-800 hover:bg-gray-950 text-white px-4 py-2 rounded text-sm font-medium shadow-xs">＋ 新增分類粗項</button>
                         <button @click="saveQuotation" :disabled="totalAmount === 0" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-medium disabled:bg-gray-300 shadow-sm">💾 儲存並產出估價單</button>
                     </div>
                 </div>
@@ -152,7 +152,7 @@
                     <!-- 🚀 A4 呈現：依據大項群組渲染的表格 -->
                     <div v-for="(group, gIdx) in (printModeData ? printModeData.groups : filteredQuotationGroups)" :key="gIdx" class="mt-6">
                         <h3 class="text-sm font-bold bg-gray-100 p-2 border-l-4 border-gray-800 text-gray-800 mb-2">
-                            {{ group.groupName || '未命名大項' }}
+                            {{ group.groupName || '未命名粗項' }}
                         </h3>
                         <table class="w-full text-sm text-left border-collapse">
                             <thead>
@@ -640,11 +640,11 @@
 
                 // 新增與刪除大項/細項的控制
                 const addNewGroup = () => {
-                    quotationGroups.value.push({ groupName: '新開立大項區塊', items: [{ type: 'product', supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', customName: '', showDropdown: false }] });
+                    quotationGroups.value.push({ groupName: '新開立粗項區塊', items: [{ type: 'product', supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', customName: '', showDropdown: false }] });
                 };
                 const removeGroup = (gIndex) => {
                     if(quotationGroups.value.length > 1) quotationGroups.value.splice(gIndex, 1);
-                    else alert('系統必須保留至少一個大項分類');
+                    else alert('系統必須保留至少一個粗項分類');
                 };
                 const addNewItem = (gIndex) => {
                     quotationGroups.value[gIndex].items.push({ type: 'product', supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', customName: '', showDropdown: false });
@@ -732,7 +732,7 @@
 
                 // --- 雲端儲存系統 ---
                 const saveQuotation = async () => {
-                    if (filteredQuotationGroups.value.length === 0) return alert('請確認已填寫大項名稱，且至少包含一項有效明細');
+                    if (filteredQuotationGroups.value.length === 0) return alert('請確認已填寫粗項名稱，且至少包含一項有效明細');
                     if (!quoteMeta.value.customerName.trim() || !quoteMeta.value.issuer.trim()) return alert('請填寫「客戶名稱」與「製單單位」後再行存檔');
 
                     try {
