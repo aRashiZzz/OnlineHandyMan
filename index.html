@@ -33,8 +33,10 @@
             </div>
         </header>
 
+        <!-- ==================== 分頁一：新建估價單 ==================== -->
         <div v-if="currentTab === 'home'" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-2 space-y-6">
+                <!-- 填寫表單區 -->
                 <div class="no-print bg-white p-6 rounded-lg shadow-sm space-y-4">
                     <h2 class="text-xl font-semibold text-gray-700 mb-2">填寫項目</h2>
                     
@@ -53,30 +55,79 @@
                         </div>
                     </div>
 
-                    <div v-for="(item, index) in quotationItems" :key="index" class="flex flex-wrap gap-3 items-center p-3 bg-gray-50 rounded border border-gray-200">
-                        <div class="flex-1 min-w-[140px]">
-                            <select v-model="item.supplierId" @change="onSupplierChange(index)" class="w-full p-2 border rounded bg-white text-sm">
-                                <option value="">-- 選擇供應商 --</option>
-                                <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
-                            </select>
+                    <!-- 🚀 功能 1：大項群組清單 -->
+                    <div v-for="(group, gIndex) in quotationGroups" :key="gIndex" class="border border-gray-300 rounded-lg p-4 bg-white space-y-3 shadow-xs relative">
+                        <div class="flex items-center gap-3 border-b pb-2">
+                            <span class="text-sm font-bold text-gray-500">大項 {{ gIndex + 1 }}:</span>
+                            <input type="text" v-model="group.groupName" placeholder="輸入大項名稱 (例如：一樓泥作工程、客廳材料)" class="flex-1 p-1.5 border-b border-gray-300 focus:border-blue-500 bg-transparent text-sm font-semibold text-gray-800 outline-hidden">
+                            <button @click="removeGroup(gIndex)" class="text-xs text-red-500 hover:text-red-700 font-medium">刪除此大項</button>
                         </div>
-                        <div class="flex-2 min-w-[200px] relative">
-                            <input type="text" v-model="item.searchQuery" @focus="item.showDropdown = true" @blur="hideDropdownWithDelay(index)" :disabled="!item.supplierId" placeholder="輸入關鍵字搜尋產品..." class="w-full p-2 border rounded bg-white text-sm">
-                            <div v-if="item.showDropdown && getFilteredProducts(item).length > 0" class="absolute z-50 left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-white border rounded-md shadow-lg text-sm">
-                                <button v-for="p in getFilteredProducts(item)" :key="p.id" @mousedown="selectRecommendedProduct(index, p)" class="w-full text-left px-3 py-2 hover:bg-blue-50 flex justify-between">
-                                    <span>{{ p.name }}</span> <span class="text-blue-600 font-bold">${{ p.price }}</span>
-                                </button>
+
+                        <!-- 大項內部的細項清單 -->
+                        <div v-for="(item, iIndex) in group.items" :key="iIndex" class="flex flex-wrap gap-2 items-center p-2.5 bg-gray-50 rounded border border-gray-200 text-xs">
+                            <!-- 功能 2：類型切換 -->
+                            <div class="w-20">
+                                <select v-model="item.type" @change="onTypeChange(gIndex, iIndex)" class="w-full p-1.5 border rounded bg-white">
+                                    <option value="product">📦 產品</option>
+                                    <option value="service">🛠️ 服務</option>
+                                </select>
+                            </div>
+
+                            <!-- 產品模式的廠商與搜尋 -->
+                            <template v-if="item.type === 'product'">
+                                <div class="w-32">
+                                    <select v-model="item.supplierId" @change="onSupplierChange(gIndex, iIndex)" class="w-full p-1.5 border rounded bg-white">
+                                        <option value="">選擇供應商</option>
+                                        <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
+                                    </select>
+                                </div>
+                                <div class="flex-1 min-w-[150px] relative">
+                                    <input type="text" v-model="item.searchQuery" @focus="item.showDropdown = true" @blur="hideDropdownWithDelay(gIndex, iIndex)" :disabled="!item.supplierId" placeholder="搜尋資料庫產品..." class="w-full p-1.5 border rounded bg-white">
+                                    <div v-if="item.showDropdown && getFilteredProducts(item).length > 0" class="absolute z-50 left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-white border rounded shadow-lg">
+                                        <button v-for="p in getFilteredProducts(item)" :key="p.id" @mousedown="selectRecommendedProduct(gIndex, iIndex, p)" class="w-full text-left px-3 py-1.5 hover:bg-blue-50 flex justify-between">
+                                            <span>{{ p.name }}</span> <span class="text-blue-600 font-bold">${{ p.price }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- 服務模式：直接手寫客製化名稱 -->
+                            <template v-else>
+                                <div class="flex-1 min-w-[250px]">
+                                    <input type="text" v-model="item.customName" placeholder="直接輸入服務或工程描述 (例如：房間油漆、冷氣清洗)" class="w-full p-1.5 border rounded bg-white">
+                                </div>
+                            </template>
+
+                            <!-- 🚀 ✨ 新增：常駐顯示原始進價提示區 -->
+                            <div class="w-24 flex flex-col justify-center text-left px-1">
+                                <span class="text-[10px] text-gray-400 font-medium select-none">原始進價</span>
+                                <span class="text-xs text-gray-600 font-mono font-semibold">
+                                    {{ item.type === 'product' && item.productId ? '$' + (item.cost !== undefined ? item.cost : getProductPriceById(item.productId)) : '—' }}
+                                </span>
+                            </div>
+
+                            <!-- 自訂售價輸入框 (調整寬度使其更美觀) -->
+                            <div class="w-24 flex flex-col">
+                                <span class="text-[10px] text-blue-500 font-medium mb-0.5 no-print select-none">調整售價</span>
+                                <input type="number" v-model.number="item.price" placeholder="售價" class="w-full p-1.5 border rounded text-right font-semibold text-blue-600" title="可自由調整最終售價">
+                            </div>
+
+                            <!-- 數量輸入框 -->
+                            <div class="w-16 flex flex-col">
+                                <span class="text-[10px] text-gray-400 font-medium mb-0.5 no-print select-none">數量</span>
+                                <input type="number" v-model.number="item.quantity" min="1" class="w-full p-1.5 border rounded text-center">
                             </div>
                         </div>
-                        <div class="w-20"><input type="number" v-model.number="item.quantity" min="1" class="w-full p-2 border rounded text-sm text-center"></div>
-                        <div class="w-24 text-right text-sm font-semibold text-gray-700">${{ calculateSubtotal(item) }}</div>
-                        <div><button @click="removeItem(index)" class="text-red-500 text-sm font-medium px-1">刪除</button></div>
+                        <button @click="addNewItem(gIndex)" class="text-xs bg-gray-50 hover:bg-gray-100 text-blue-600 px-3 py-1.5 rounded border border-dashed border-gray-300 font-medium">＋ 新增細項</button>
                     </div>
+
                     <div class="flex justify-between items-center pt-2">
-                        <button @click="addNewItem" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-medium">＋ 新增項目</button>
+                        <button @click="addNewGroup" class="bg-gray-800 hover:bg-gray-950 text-white px-4 py-2 rounded text-sm font-medium shadow-xs">＋ 新增分類大項</button>
+                        <button @click="saveQuotation" :disabled="totalAmount === 0" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-medium disabled:bg-gray-300 shadow-sm">💾 儲存並產出估價單</button>
                     </div>
                 </div>
 
+                <!-- 🖨️ 標準 A4 估價單預覽列印區 -->
                 <div v-if="totalAmount > 0 || printModeData" class="print-area bg-white p-8 rounded-lg shadow-sm border border-gray-300 max-w-[21cm] mx-auto text-black font-sans">
                     <div class="text-center space-y-1 relative">
                         <h1 class="text-3xl font-bold tracking-widest text-gray-900">估 價 單</h1>
@@ -89,7 +140,7 @@
 
                     <div class="grid grid-cols-2 gap-4 border-b-2 border-black pb-4 mt-8 text-sm">
                         <div class="space-y-1">
-                            <div><strong>客戶名稱：</strong> {{ printModeData ? (printModeData.customer_name || printModeData.customerName || '未指定') : (quoteMeta.customerName || '（請於上方填寫客戶名稱）') }}</div>
+                            <div><strong>客戶名稱：</strong> {{ printModeData ? (printModeData.customer_name || '未指定') : (quoteMeta.customerName || '（請於上方填寫客戶名稱）') }}</div>
                             <div><strong>摘要說明：</strong> {{ printModeData ? (printModeData.summary || '無') : (quoteMeta.summary || '無') }}</div>
                         </div>
                         <div class="space-y-0.5 text-right text-xs text-gray-600">
@@ -98,31 +149,45 @@
                         </div>
                     </div>
 
-                    <table class="w-full text-sm text-left mt-6 border-collapse">
-                        <thead>
-                            <tr class="border-b border-black text-gray-700 font-bold bg-gray-50">
-                                <th class="py-2 px-1 text-center w-12">項次</th>
-                                <th class="py-2 px-2">供應商 / 項目名稱</th>
-                                <th class="py-2 px-2">規格類型</th>
-                                <th class="py-2 px-2 text-right w-20">單價</th>
-                                <th class="py-2 px-2 text-center w-16">數量</th>
-                                <th class="py-2 px-2 text-right w-24">小計 (元)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(item, i) in (printModeData ? printModeData.items : validQuotationItems)" :key="i" class="border-b border-gray-200">
-                                <td class="py-2.5 text-center text-gray-500 font-mono">{{ i + 1 }}</td>
-                                <td class="py-2.5 px-2 font-medium">
-                                    <span class="text-xs text-gray-400 block">[{{ getSupplierName(item.supplierId) }}]</span>
-                                    {{ getProductNameById(item.productId) || '未指定產品' }}
-                                </td>
-                                <td class="py-2.5 px-2 text-gray-600 text-xs">{{ getProductCategoryById(item.productId) }}</td>
-                                <td class="py-2.5 px-2 text-right font-mono">${{ item.price }}</td>
-                                <td class="py-2.5 px-2 text-center font-mono">{{ item.quantity }}</td>
-                                <td class="py-2.5 px-2 text-right font-mono font-semibold">${{ calculateSubtotal(item) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <!-- 🚀 A4 呈現：依據大項群組渲染的表格 -->
+                    <div v-for="(group, gIdx) in (printModeData ? printModeData.groups : filteredQuotationGroups)" :key="gIdx" class="mt-6">
+                        <h3 class="text-sm font-bold bg-gray-100 p-2 border-l-4 border-gray-800 text-gray-800 mb-2">
+                            {{ group.groupName || '未命名大項' }}
+                        </h3>
+                        <table class="w-full text-sm text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-black text-gray-700 font-bold bg-gray-50/50 text-xs">
+                                    <th class="py-2 px-1 text-center w-12">項次</th>
+                                    <th class="py-2 px-2">項目名稱 / 描述</th>
+                                    <th class="py-2 px-2 w-24">規格類型</th>
+                                    <th class="py-2 px-2 text-right w-24">單價</th>
+                                    <th class="py-2 px-2 text-center w-16">數量</th>
+                                    <th class="py-2 px-2 text-right w-24">小計 (元)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, iIdx) in group.items" :key="iIdx" class="border-b border-gray-200 text-xs">
+                                    <td class="py-2.5 text-center text-gray-500 font-mono">{{ iIdx + 1 }}</td>
+                                    <td class="py-2.5 px-2 font-medium">
+                                        <template v-if="item.type === 'product'">
+                                            <span class="text-[10px] text-gray-400 block">[{{ getSupplierName(item.supplierId) }}]</span>
+                                            {{ getProductNameById(item.productId) || '未指定產品' }}
+                                        </template>
+                                        <template v-else>
+                                            <span class="text-[10px] text-blue-500 block">[🛠️ 專案服務]</span>
+                                            {{ item.customName || '未填寫服務內容' }}
+                                        </template>
+                                    </td>
+                                    <td class="py-2.5 px-2 text-gray-600 text-[11px]">
+                                        {{ item.type === 'product' ? getProductCategoryById(item.productId) : '現場施工/服務' }}
+                                    </td>
+                                    <td class="py-2.5 px-2 text-right font-mono">${{ item.price }}</td>
+                                    <td class="py-2.5 px-2 text-center font-mono">{{ item.quantity }}</td>
+                                    <td class="py-2.5 px-2 text-right font-mono font-semibold">${{ calculateSubtotal(item) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     <div class="grid grid-cols-3 items-center border-t border-black mt-6 pt-4 text-sm">
                         <div class="col-span-2">
@@ -134,21 +199,53 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-3 text-center text-xs mt-12 pt-8 gap-4 border-t border-dashed">
-                        <div>核准主管：_________________</div>
-                        <div>財務會計：_________________</div>
-                        <div>經手填單：_________________</div>
+                    <!-- 🟢 修正後：全新商用合約條款與經手人區塊 -->
+                    <div class="border-t border-black mt-8 pt-4 text-xs space-y-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- 左側：付款與稅金條款 (輸入框在列印時會自動去除邊框，像印刷字一樣) -->
+                            <div class="space-y-2">
+                                <div class="flex items-start gap-1">
+                                    <strong class="shrink-0 pt-1">付款方式：</strong>
+                                    <textarea :value="printModeData ? printModeData.paymentTerms : quoteMeta.paymentTerms" @input="!printModeData ? quoteMeta.paymentTerms = $event.target.value : null" rows="2" ...></textarea>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <strong>本估價單價格：</strong>
+                                    <label class="flex items-center gap-1 cursor-pointer">
+                                        <!-- 含稅 -->
+										<input type="radio" :name="'taxType_print'" :checked="printModeData ? printModeData.taxType === 'included' : quoteMeta.taxType === 'included'" @change="!printModeData ? quoteMeta.taxType = 'included' : null" :disabled="printModeData" class="w-3 h-3">
+                                        <span>含稅</span>
+                                    </label>
+                                    <label class="flex items-center gap-1 cursor-pointer">
+                                        <!-- 不含稅 -->
+										<input type="radio" :name="'taxType_print'" :checked="printModeData ? printModeData.taxType === 'excluded' : quoteMeta.taxType === 'excluded'" @change="!printModeData ? quoteMeta.taxType = 'excluded' : null" :disabled="printModeData" class="w-3 h-3">
+                                        <span>不含稅</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- 右側：僅保留經手人簽章區 -->
+                            <div class="flex items-end justify-end pb-2">
+                                <!-- 🟢 修正後：專為手寫簽名、蓋章設計的留白欄位 -->
+								<div class="text-right tracking-wider flex justify-end items-center gap-1">
+									<span>經手填單人：</span>
+									<span class="inline-block border-b border-black text-center font-mono font-bold tracking-widest text-transparent select-none print:text-transparent" style="width: 150px; min-height: 24px;">
+										＿＿＿＿＿＿＿＿
+									</span>
+								</div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="no-print mt-8 flex justify-center gap-4">
                         <button @click="triggerPrint" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-md">🖨️ 發送至系統列印 / 另存 PDF</button>
-						<button @click="saveQuotation" :disabled="totalAmount === 0" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-medium disabled:bg-gray-300 shadow-sm">💾 儲存並產出估價單</button>
                         <button v-if="printModeData" @click="printModeData = null" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium">關閉預覽，返回新建</button>
                     </div>
                 </div>
             </div>
 
+            <!-- 右側欄位容器 -->
             <div class="no-print space-y-6">
+                <!-- 快速比價面板 -->
                 <div class="bg-white p-6 rounded-lg shadow-sm">
                     <h2 class="text-lg font-semibold text-gray-700 mb-3">🔍 快速比價面板</h2>
                     <label class="block text-sm font-medium text-gray-600 mb-1">選擇產品類型</label>
@@ -166,9 +263,53 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 🚀 ✨ 升級：支援歷史調閱雙模式的「利潤分析看板」 -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border space-y-4"
+                     :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'bg-emerald-50/20 border-emerald-200' : 'bg-red-50/20 border-red-200'">
+                    
+                    <!-- 動態標題 -->
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        📊 {{ printModeData ? '📜 歷史單據利潤分析' : '📊 當前開單利潤分析' }}
+                    </h2>
+                    
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                            <span class="text-gray-500">總營收 (售價總計)</span>
+                            <span class="text-gray-900 font-bold font-mono text-base">
+                                ${{ printModeData ? printModeData.total_amount : totalAmount }}
+                            </span>
+                        </div>
+                        
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                            <span class="text-gray-500">預估利潤金額</span>
+                            <span class="font-bold font-mono text-lg" 
+                                  :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'text-emerald-600' : 'text-red-600'">
+                                ${{ printModeData ? historyProfitSummary.amount : profitSummary.amount }}
+                            </span>
+                        </div>
+                        
+                        <div class="flex justify-between items-center pt-1">
+                            <span class="text-gray-500">全單毛利率</span>
+                            <span class="px-2.5 py-1 rounded-md font-bold font-mono text-sm shadow-xs text-white" 
+                                  :class="(printModeData ? historyProfitSummary.amount : profitSummary.amount) >= 0 ? 'bg-emerald-600' : 'bg-red-600'">
+                                {{ printModeData ? historyProfitSummary.percentage : profitSummary.percentage }}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 狀態說明提醒 -->
+                    <div v-if="printModeData" class="text-[11px] text-blue-600 leading-relaxed bg-blue-50/50 p-2.5 rounded-md border border-blue-200 border-dashed">
+                        ℹ️ 目前正在檢視歷史單據 <span class="font-mono font-bold">{{ printModeData.quote_number }}</span> 的收益分析。
+                    </div>
+                    <div v-else class="text-[11px] text-gray-400 leading-relaxed bg-white/80 p-2.5 rounded-md border border-dashed">
+                        💡 提示：產品類項目會自動扣除資料庫約定進價成本；手寫的「服務類」項目目前預設為全額純利計算。
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- ==================== 分頁二：📜 歷史估價單紀錄 ==================== -->
         <div v-if="currentTab === 'history'" class="no-print bg-white p-6 rounded-lg shadow-sm space-y-4 animate-in fade-in duration-200">
             <h2 class="text-xl font-bold text-gray-700">📜 本機開立估價單歷史存檔</h2>
 			<div class="no-print flex flex-wrap items-center gap-4 bg-gray-100 p-4 rounded-lg text-sm border">
@@ -203,7 +344,7 @@
                         <tr v-for="rec in filteredHistoryRecords" :key="rec.id" class="border-b hover:bg-gray-50">
                             <td class="p-3 border font-mono font-bold text-red-600">{{ rec.quote_number }}</td>
                             <td class="p-3 border text-gray-600">{{ rec.created_at }}</td>
-                            <td class="p-3 border text-gray-500">{{ rec.items.length }} 筆產品項目</td>
+                            <td class="p-3 border text-gray-500">已分類明細資料</td>
                             <td class="p-3 border text-right font-bold text-blue-600">${{ rec.total_amount }}</td>
                             <td class="p-3 border text-center">
                                 <button @click="previewHistory(rec)" class="text-blue-600 hover:text-blue-900 font-medium">調閱單據並列印</button>
@@ -214,21 +355,23 @@
             </div>
         </div>
 
+        <!-- ==================== 分頁三：🔧 資料庫維護 ==================== -->
         <div v-if="currentTab === 'admin'" class="no-print space-y-8 animate-in fade-in duration-200">
+            <!-- 原本的資料庫維護面板 (維持不變) -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-white p-6 rounded-lg shadow-sm space-y-3">
                     <h2 class="text-lg font-bold text-gray-700">🏢 新增供應商基本資料</h2>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">廠商名稱 *</label>
-                        <input type="text" v-model="newSupplier.name" placeholder="example：甲方案包裝廠" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newSupplier.name" placeholder="例如：甲方案包裝廠" class="w-full p-2 border rounded text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">聯絡電話</label>
-                        <input type="text" v-model="newSupplier.phone" placeholder="example：02-2345-6789" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newSupplier.phone" placeholder="例如：02-2345-6789" class="w-full p-2 border rounded text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">公司地址</label>
-                        <input type="text" v-model="newSupplier.address" placeholder="example：台北市信義路五段1號" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newSupplier.address" placeholder="例如：台北市信義路五段1號" class="w-full p-2 border rounded text-sm">
                     </div>
                     <button @click="addSupplier" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">確認建立供應商</button>
                 </div>
@@ -244,11 +387,11 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">產品類型 *</label>
-                        <input type="text" v-model="newProdCategory" placeholder="example：包材、五金零件" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newProdCategory" placeholder="例如：包材、五金零件" class="w-full p-2 border rounded text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">產品品名 *</label>
-                        <input type="text" v-model="newProdName" placeholder="example：特大加厚紙箱" class="w-full p-2 border rounded text-sm">
+                        <input type="text" v-model="newProdName" placeholder="例如：特大加厚紙箱" class="w-full p-2 border rounded text-sm">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">約定單價 *</label>
@@ -259,6 +402,7 @@
             </div>
 
             <div class="space-y-6 w-full">
+                <!-- 供應商與產品列表總覽維護區 (維持不變) -->
                 <div class="bg-white p-6 rounded-lg shadow-sm overflow-x-auto">
                     <h3 class="text-base font-bold text-gray-700 mb-3">🏢 供應商管理總覽 (可直接在格內修改)</h3>
                     <table class="w-full text-sm text-left border">
@@ -315,6 +459,7 @@
             </div>
         </div>
 
+        <!-- 彈出視窗確認組件 -->
         <div v-if="modal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm"></div>
             <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative z-10 border border-gray-100">
@@ -337,324 +482,430 @@
 
     </div>
 
+    <!-- ==================== 核心 JavaScript 控制邏輯 ==================== -->
     <script>
-		const { createApp, ref, computed, onMounted } = Vue;
-		
-		// 💡 修正 1：將原本錯誤的 1_URL 改回正確且合法的變數名稱 SUPABASE_URL
-		const SUPABASE_URL = 'https://ksildcqlykdbbpzpncpu.supabase.co';
+        const { createApp, ref, computed, onMounted } = Vue;
+        const SUPABASE_URL = 'https://ksildcqlykdbbpzpncpu.supabase.co';
 		const SUPABASE_ANON_KEY = 'sb_publishable_tEGZJR7yU2EsGi4jEX8hUA_-a_nQrct';
-		
-		// 💡 修正 2：確保這裡傳入的是正確的 SUPABASE_URL 變數
 		const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-		createApp({
-			setup() {
-				const currentTab = ref('home');
-				const suppliers = ref([]);
-				const products = ref([]);
-				const historyRecords = ref([]);
-				const quotationItems = ref([{ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false }]);
-				const selectedCategory = ref('');
-				const printModeData = ref(null);
-				const quoteMeta = ref({ customerName: '', issuer: '', summary: '' });
+        createApp({
+            setup() {
+                const currentTab = ref('home');
+                const suppliers = ref([]);
+                const products = ref([]);
+                const historyRecords = ref([]);
+                
+                // 🚀 核心結構變更：改用群組大項 (Groups) 架構
+                const quotationGroups = ref([
+                    { groupName: '基礎工程欄位', items: [{ type: 'product', supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', customName: '', showDropdown: false }] }
+                ]);
 
-				const hideDropdownWithDelay = (index) => {
-					setTimeout(() => {
-						if (quotationItems.value[index]) {
-							quotationItems.value[index].showDropdown = false;
-						}
-					}, 200);
-				};
+                const selectedCategory = ref('');
+                const printModeData = ref(null);
+                const quoteMeta = ref({ 
+                    customerName: '', 
+                    issuer: '', 
+                    summary: '',
+                    paymentTerms: '第一期：訂金 30%、第二期：工程完工 70%', // 可自行設定常用的預設文字
+                    taxType: 'excluded' // 預設勾選「不含稅」，可改為 'included' (含稅)
+                });
 
-				const dateFilter = ref({ start: '', end: '' });
-				const clearDateFilter = () => { dateFilter.value = { start: '', end: '' }; };
+                const hideDropdownWithDelay = (gIndex, iIndex) => {
+                    setTimeout(() => {
+                        if (quotationGroups.value[gIndex] && quotationGroups.value[gIndex].items[iIndex]) {
+                            quotationGroups.value[gIndex].items[iIndex].showDropdown = false;
+                        }
+                    }, 200);
+                };
 
-				const filteredHistoryRecords = computed(() => {
-					if (!dateFilter.value.start && !dateFilter.value.end) {
-						return historyRecords.value;
-					}
-					return historyRecords.value.filter(rec => {
-						if (!rec.created_at) return false;
-						const recordDate = new Date(rec.created_at);
-						
-						const startDate = dateFilter.value.start ? new Date(dateFilter.value.start) : null;
-						const endDate = dateFilter.value.end ? new Date(dateFilter.value.end) : null;
-						
-						recordDate.setHours(0,0,0,0);
-						if (startDate) startDate.setHours(0,0,0,0);
-						if (endDate) endDate.setHours(0,0,0,0);
+                const dateFilter = ref({ start: '', end: '' });
+                const clearDateFilter = () => { dateFilter.value = { start: '', end: '' }; };
 
-						if (startDate && recordDate < startDate) return false;
-						if (endDate && recordDate > endDate) return false;
-						
-						return true;
-					});
-				});
+                const filteredHistoryRecords = computed(() => {
+                    if (!dateFilter.value.start && !dateFilter.value.end) return historyRecords.value;
+                    return historyRecords.value.filter(rec => {
+                        if (!rec.created_at) return false;
+                        const recordDate = new Date(rec.created_at);
+                        const startDate = dateFilter.value.start ? new Date(dateFilter.value.start) : null;
+                        const endDate = dateFilter.value.end ? new Date(dateFilter.value.end) : null;
+                        recordDate.setHours(0,0,0,0);
+                        if (startDate) startDate.setHours(0,0,0,0);
+                        if (endDate) endDate.setHours(0,0,0,0);
+                        if (startDate && recordDate < startDate) return false;
+                        if (endDate && recordDate > endDate) return false;
+                        return true;
+                    });
+                });
 
-				const newSupplier = ref({ name: '', phone: '', address: '' });
-				const newProdSupplierId = ref('');
-				const newProdCategory = ref('');
-				const newProdName = ref('');
-				const newProdPrice = ref(0);
+                const newSupplier = ref({ name: '', phone: '', address: '' });
+                const newProdSupplierId = ref('');
+                const newProdCategory = ref('');
+                const newProdName = ref('');
+                const newProdPrice = ref(0);
+                const modal = ref({ show: false, title: '', content: {}, onConfirm: null });
 
-				const modal = ref({ show: false, title: '', content: {}, onConfirm: null });
+                // --- 雲端資料撈取 ---
+                const fetchInitialData = async () => {
+                    try {
+                        const { data: supData, error: supErr } = await db.from('suppliers').select('*').order('name');
+                        if (supErr) throw supErr;
+                        suppliers.value = supData;
 
-				const fetchInitialData = async () => {
-					try {
-						const { data: supData, error: supErr } = await db.from('suppliers').select('*').order('name');
-						if (supErr) throw supErr;
-						suppliers.value = supData;
+                        const { data: prodData, error: prodErr } = await db.from('products').select('*').order('name');
+                        if (prodErr) throw prodErr;
+                        products.value = prodData;
+                    } catch (err) { console.error('Supabase 讀取初始資料失敗:', err.message); }
+                };
 
-						const { data: prodData, error: prodErr } = await db.from('products').select('*').order('name');
-						if (prodErr) throw prodErr;
-						products.value = prodData;
-					} catch (err) { 
-						console.error('Supabase 讀取初始資料失敗:', err.message); 
-					}
-				};
+                const fetchHistory = async () => {
+                    try {
+                        const { data, error } = await db.from('quotations').select('*').order('id', { ascending: false });
+                        if (error) throw error;
+                        historyRecords.value = data.map(r => {
+                            const parsedJson = typeof r.items_json === 'string' ? JSON.parse(r.items_json) : r.items_json;
+                            return {
+                                id: r.id,
+                                quote_number: r.quote_number,
+                                created_at: new Date(r.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+                                total_amount: r.total_amount,
+                                customer_name: r.customer_name,
+                                issuer: r.issuer,
+                                summary: r.summary,
+                                groups: parsedJson.groups || [{ groupName: '未分類項目', items: parsedJson.items || [] }],
+                                // 🚀 新增這兩行：從雲端回傳時，讀取當初包在單據裡的付款與稅金設定
+                                paymentTerms: parsedJson.paymentTerms || '',
+                                taxType: parsedJson.taxType || 'excluded'
+                            };
+                        });
+                    } catch (err) { console.error('Supabase 讀取歷史單據失敗:', err.message); }
+                };
 
-				const fetchHistory = async () => {
-					try {
-						const { data, error } = await db.from('quotations').select('*').order('id', { ascending: false });
-						if (error) throw error;
-						
-						historyRecords.value = data.map(r => ({
-							id: r.id,
-							quote_number: r.quote_number,
-							created_at: new Date(r.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
-							total_amount: r.total_amount,
-							customer_name: r.customer_name,
-							issuer: r.issuer,
-							summary: r.summary,
-							items: typeof r.items_json === 'string' ? JSON.parse(r.items_json) : (r.items_json.items || r.items_json)
-						}));
-					} catch (err) { 
-						console.error('Supabase 讀取歷史單據失敗:', err.message); 
-					}
-				};
+                onMounted(() => { fetchInitialData(); });
 
-				onMounted(() => { fetchInitialData(); });
+                // --- 群組與細項的計算邏輯 ---
+                const calculateSubtotal = (item) => ((item.price || 0) * (item.quantity || 0));
+                
+                // 過濾並取得有效的表單資料群組用於列印預覽
+                const filteredQuotationGroups = computed(() => {
+                    return quotationGroups.value.map(g => ({
+                        groupName: g.groupName,
+                        items: g.items.filter(i => i.productId || i.customName.trim())
+                    })).filter(g => g.items.length > 0);
+                });
 
-				const calculateSubtotal = (item) => (item.price * (item.quantity || 0));
-				const validQuotationItems = computed(() => quotationItems.value.filter(item => item.productId));
-				const totalAmount = computed(() => validQuotationItems.value.reduce((sum, item) => sum + calculateSubtotal(item), 0));
+                const totalAmount = computed(() => {
+                    return filteredQuotationGroups.value.reduce((sum, g) => {
+                        return sum + g.items.reduce((gSum, i) => gSum + calculateSubtotal(i), 0);
+                    }, 0);
+                });
 
-				const getAvailableProducts = (supplierId) => products.value.filter(p => p.supplier_id ? p.supplier_id.toString() === supplierId.toString() : false);
-				const onSupplierChange = (index) => {
-					quotationItems.value[index].productId = ''; quotationItems.value[index].price = 0; quotationItems.value[index].searchQuery = '';
-				};
-				const getFilteredProducts = (item) => {
-					const available = getAvailableProducts(item.supplierId);
-					if (!item.searchQuery) return available;
-					return available.filter(p => p.name.toLowerCase().includes(item.searchQuery.toLowerCase()));
-				};
-				const selectRecommendedProduct = (index, product) => {
-					const item = quotationItems.value[index];
-					item.productId = product.id; item.price = product.price; item.searchQuery = product.name; item.showDropdown = false;
-				};
+                // --- 明細表單操作邏輯 ---
+                const getAvailableProducts = (supplierId) => products.value.filter(p => p.supplier_id && p.supplier_id.toString() === supplierId.toString());
+                const onSupplierChange = (gIndex, iIndex) => {
+                    const item = quotationGroups.value[gIndex].items[iIndex];
+                    item.productId = ''; item.price = 0; item.searchQuery = '';
+                };
+                const onTypeChange = (gIndex, iIndex) => {
+                    const item = quotationGroups.value[gIndex].items[iIndex];
+                    item.supplierId = ''; item.productId = ''; item.price = 0; item.searchQuery = ''; item.customName = '';
+                };
+                const getFilteredProducts = (item) => {
+                    const available = getAvailableProducts(item.supplierId);
+                    if (!item.searchQuery) return available;
+                    return available.filter(p => p.name.toLowerCase().includes(item.searchQuery.toLowerCase()));
+                };
+                const selectRecommendedProduct = (gIndex, iIndex, product) => {
+                    const item = quotationGroups.value[gIndex].items[iIndex];
+                    item.productId = product.id; 
+                    item.price = product.price; // 🚀 自動帶入資料庫預設進價/售價，後續允許手動自由修改
+					item.cost = product.price;
+                    item.searchQuery = product.name; 
+                    item.showDropdown = false;
+                };
 
-				const getSupplierName = (id) => {
-					if (!id) return '未知廠商';
-					return suppliers.value.find(sup => sup.id.toString() === id.toString())?.name || '未知廠商';
-				};
-				const getProductNameById = (id) => {
-					if (!id) return '';
-					return products.value.find(p => p.id.toString() === id.toString())?.name || '';
-				};
-				const getProductCategoryById = (id) => {
-					if (!id) return '';
-					return products.value.find(p => p.id.toString() === id.toString())?.category || '';
-				};
-				const categories = computed(() => [...new Set(products.value.map(p => p.category))]);
-				const sortedComparisonProducts = computed(() => {
-					if (!selectedCategory.value) return [];
-					return products.value.filter(p => p.category === selectedCategory.value).sort((a,b) => a.price - b.price);
-				});
+                const getSupplierName = (id) => id ? (suppliers.value.find(sup => sup.id.toString() === id.toString())?.name || '未知廠商') : '未知廠商';
+                const getProductNameById = (id) => id ? (products.value.find(p => p.id.toString() === id.toString())?.name || '') : '';
+				// 🚀 新增：透過產品 ID 快速查找資料庫內原始定價的輔助工具
+                const getProductPriceById = (id) => {
+                    if (!id) return 0;
+                    return products.value.find(p => p.id.toString() === id.toString())?.price || 0;
+                };
+                const getProductCategoryById = (id) => id ? (products.value.find(p => p.id.toString() === id.toString())?.category || '') : '';
+                const categories = computed(() => [...new Set(products.value.map(p => p.category))]);
+                const sortedComparisonProducts = computed(() => {
+                    if (!selectedCategory.value) return [];
+                    return products.value.filter(p => p.category === selectedCategory.value).sort((a,b) => a.price - b.price);
+                });
 
-				const addNewItem = () => {
-					quotationItems.value.push({ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false });
-				};
+                // 新增與刪除大項/細項的控制
+                const addNewGroup = () => {
+                    quotationGroups.value.push({ groupName: '新開立大項區塊', items: [{ type: 'product', supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', customName: '', showDropdown: false }] });
+                };
+                const removeGroup = (gIndex) => {
+                    if(quotationGroups.value.length > 1) quotationGroups.value.splice(gIndex, 1);
+                    else alert('系統必須保留至少一個大項分類');
+                };
+                const addNewItem = (gIndex) => {
+                    quotationGroups.value[gIndex].items.push({ type: 'product', supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', customName: '', showDropdown: false });
+                };
+                const removeItem = (gIndex, iIndex) => {
+                    quotationGroups.value[gIndex].items.splice(iIndex, 1);
+                };
+				// 🚀 新增核心功能：動態比對資料庫進價，即時計算全單的利潤金額與毛利率 %
+                const profitSummary = computed(() => {
+                    let totalCost = 0;
+                    let totalSales = 0;
 
-				const removeItem = (index) => {
-					quotationItems.value.splice(index, 1);
-				};
+                    // 遍歷所有大項與裡面的有效細項
+                    filteredQuotationGroups.value.forEach(group => {
+                        group.items.forEach(item => {
+                            const itemSales = (item.price || 0) * (item.quantity || 0);
+                            totalSales += itemSales;
 
-				const saveQuotation = async () => {
-					if (validQuotationItems.value.length === 0) return alert('請至少選擇一項有效的產品項目');
-					if (!quoteMeta.value.customerName.trim() || !quoteMeta.value.issuer.trim()) {
-						return alert('請填寫「客戶名稱」與「製單單位」後再行存檔');
-					}
+                            if (item.type === 'product') {
+                                // 產品類：如果 item.cost 存在就使用它，否則去資料庫比對原始價格作為成本
+                                let originalPrice = item.cost;
+                                if (originalPrice === undefined) {
+                                    const dbProd = products.value.find(p => p.id.toString() === item.productId.toString());
+                                    originalPrice = dbProd ? dbProd.price : (item.price || 0);
+                                }
+                                totalCost += originalPrice * (item.quantity || 0);
+                            } else {
+                                // 服務類：預設手作服務的原始進價成本為 $0 元（即售價全額皆為毛利利潤）
+                                totalCost += 0;
+                            }
+                        });
+                    });
 
-					try {
-						const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
-						const randomNum = Math.floor(1000 + Math.random() * 9000);
-						const quote_number = `LQ${dateStr}-${randomNum}`;
+                    const profitAmount = totalSales - totalCost;
+                    
+                    // 防止除以 0 的錯誤
+                    let profitPercent = 0;
+                    if (totalSales > 0) {
+                        profitPercent = Math.round((profitAmount / totalSales) * 100);
+                    }
 
-						const itemsPayload = validQuotationItems.value.map(i => ({ 
-							supplierId: i.supplierId ? parseInt(i.supplierId) : null, 
-							productId: i.productId ? parseInt(i.productId) : null, 
-							quantity: i.quantity, 
-							price: i.price 
-						}));
+                    return {
+                        amount: profitAmount,
+                        percentage: profitPercent
+                    };
+                });
+				// 🚀 新增：專門計算「歷史調閱單據」利潤的計算屬性
+                const historyProfitSummary = computed(() => {
+                    if (!printModeData.value || !printModeData.value.groups) {
+                        return { amount: 0, percentage: 0 };
+                    }
 
-						const { data, error } = await db.from('quotations').insert([{
-							quote_number: quote_number,
-							customer_name: quoteMeta.value.customerName.trim(),
-							issuer: quoteMeta.value.issuer.trim(),
-							summary: quoteMeta.value.summary.trim(),
-							total_amount: totalAmount.value,
-							items_json: { items: itemsPayload } 
-						}]).select();
+                    let totalCost = 0;
+                    let totalSales = 0;
 
-						if (error) throw error;
+                    // 遍歷歷史單據中儲存的 JSON 階層結構
+                    printModeData.value.groups.forEach(group => {
+                        group.items.forEach(item => {
+                            const itemSales = (item.price || 0) * (item.quantity || 0);
+                            totalSales += itemSales;
 
-						printModeData.value = {
-							quote_number: quote_number,
-							created_at: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
-							total_amount: totalAmount.value,
-							customer_name: quoteMeta.value.customerName.trim(),
-							issuer: quoteMeta.value.issuer.trim(),
-							summary: quoteMeta.value.summary.trim(),
-							items: itemsPayload
-						};
+                            if (item.type === 'product') {
+                                // 從當前資料庫中找出該產品原始進價成本（若產品已被刪除，則以單據當時售價暫代成本）
+                                const dbProd = products.value.find(p => p.id.toString() === item.productId.toString());
+                                const originalPrice = dbProd ? dbProd.price : (item.price || 0);
+                                totalCost += originalPrice * (item.quantity || 0);
+                            } else {
+                                // 服務類成本預設為 0
+                                totalCost += 0;
+                            }
+                        });
+                    });
 
-						alert(`雲端估價單成功建檔！單號：${quote_number}`);
-						
-						await fetchHistory();
+                    const profitAmount = totalSales - totalCost;
+                    let profitPercent = 0;
+                    if (totalSales > 0) {
+                        profitPercent = Math.round((profitAmount / totalSales) * 100);
+                    }
 
-						quoteMeta.value = { customerName: '', issuer: '', summary: '' };
-						quotationItems.value = [{ supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', showDropdown: false }];
-					} catch (err) { 
-						alert('雲端儲存失敗: ' + err.message); 
-					}
-				};
+                    return {
+                        amount: profitAmount,
+                        percentage: profitPercent
+                    };
+                });
 
-				const addSupplier = () => {
-					if (!newSupplier.value.name.trim()) return alert('請填寫廠商名稱');
-					modal.value = {
-						show: true, title: '建立供應商確認 (雲端)',
-						content: { '廠商名稱': newSupplier.value.name, '電話': newSupplier.value.phone, '地址': newSupplier.value.address },
-						onConfirm: async () => {
-							const { data, error } = await db.from('suppliers').insert([newSupplier.value]).select();
-							if (error) return alert('新增失敗: ' + error.message);
-							suppliers.value.push(data[0]);
-							newSupplier.value = { name: '', phone: '', address: '' };
-						}
-					};
-				};
+                // --- 雲端儲存系統 ---
+                const saveQuotation = async () => {
+                    if (filteredQuotationGroups.value.length === 0) return alert('請確認已填寫大項名稱，且至少包含一項有效明細');
+                    if (!quoteMeta.value.customerName.trim() || !quoteMeta.value.issuer.trim()) return alert('請填寫「客戶名稱」與「製單單位」後再行存檔');
 
-				const addProduct = () => {
-					if (!newProdSupplierId.value || !newProdCategory.value.trim() || !newProdName.value.trim() || newProdPrice.value <= 0) return alert('請完整填寫欄位');
-					modal.value = {
-						show: true, title: '建立新產品確認 (雲端)',
-						content: { '所屬廠商': getSupplierName(parseInt(newProdSupplierId.value)), '類型': newProdCategory.value, '品名': newProdName.value, '單價': `$${newProdPrice.value}` },
-						onConfirm: async () => {
-							const { data, error } = await db.from('products').insert([{
-								supplier_id: parseInt(newProdSupplierId.value),
-								category: newProdCategory.value.trim(),
-								name: newProdName.value.trim(),
-								price: newProdPrice.value
-							}]).select();
-							if (error) return alert('新增失敗: ' + error.message);
-							products.value.push(data[0]);
-							newProdCategory.value = ''; newProdName.value = ''; newProdPrice.value = 0;
-						}
-					};
-				};
+                    try {
+                        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+                        const randomNum = Math.floor(1000 + Math.random() * 9000);
+                        const quote_number = `LQ${dateStr}-${randomNum}`;
 
-				const updateSupplier = (sup) => {
-					modal.value = {
-						show: true, title: '儲存供應商修改 (雲端)',
-						content: { '廠商名稱': sup.name, '電話': sup.phone, '地址': sup.address },
-						onConfirm: async () => {
-							const { error } = await db.from('suppliers').update({
-								name: sup.name, phone: sup.phone, address: sup.address
-							}).eq('id', sup.id);
-							if (error) return alert('修改失敗: ' + error.message);
-							alert('雲端供應商同步變更成功！');
-						}
-					};
-				};
+                        // 整理成階層式的 JSONB Payload 拋轉回雲端
+                        const payloadGroups = filteredQuotationGroups.value.map(g => ({
+                            groupName: g.groupName.trim(),
+                            items: g.items.map(i => ({
+                                type: i.type,
+                                supplierId: i.supplierId ? parseInt(i.supplierId) : null,
+                                productId: i.productId ? parseInt(i.productId) : null,
+                                customName: i.customName.trim(),
+                                quantity: i.quantity,
+                                price: i.price
+                            }))
+                        }));
 
-				const deleteSupplier = (id) => {
-					modal.value = {
-						show: true, title: '⚠️ 警告：永久刪除供應商',
-						content: { '注意': '將會從雲端永久移除此供應商', '廠商名稱': getSupplierName(id) },
-						onConfirm: async () => {
-							const { error } = await db.from('suppliers').delete().eq('id', id);
-							if (error) return alert('刪除失敗: ' + error.message);
-							suppliers.value = suppliers.value.filter(s => s.id !== id);
-						}
-					};
-				};
+                        const { error } = await db.from('quotations').insert([{
+                            quote_number: quote_number,
+                            customer_name: quoteMeta.value.customerName.trim(),
+                            issuer: quoteMeta.value.issuer.trim(),
+                            summary: quoteMeta.value.summary.trim(),
+                            total_amount: totalAmount.value,
+                            items_json: { groups: payloadGroups }
+                        }]);
 
-				const updateProduct = (prod) => {
-					modal.value = {
-						show: true, title: '儲存產品修改 (雲端)',
-						content: { '品名': prod.name, '類型': prod.category, '新單價': `$${prod.price}` },
-						onConfirm: async () => {
-							const { error } = await db.from('products').update({
-								name: prod.name, category: prod.category, price: prod.price
-							}).eq('id', prod.id);
-							if (error) return alert('修改失敗: ' + error.message);
-							alert('雲端產品資費同步變更成功！');
-						}
-					};
-				};
+                        if (error) throw error;
 
-				const deleteProduct = (id) => {
-					const prod = products.value.find(p => p.id === id);
-					modal.value = {
-						show: true, title: '⚠️ 確定要從雲端刪除該產品嗎？',
-						content: { '產品品名': prod ? prod.name : '未知產品' },
-						onConfirm: async () => {
-							const { error } = await db.from('products').delete().eq('id', id);
-							if (error) return alert('刪除失敗: ' + error.message);
-							products.value = products.value.filter(p => p.id !== id);
-						}
-					};
-				};
+                        printModeData.value = {
+                            quote_number: quote_number,
+                            created_at: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
+                            total_amount: totalAmount.value,
+                            customer_name: quoteMeta.value.customerName.trim(),
+                            issuer: quoteMeta.value.issuer.trim(),
+                            summary: quoteMeta.value.summary.trim(),
+                            groups: payloadGroups,
+							paymentTerms: quoteMeta.value.paymentTerms,
+                            taxType: quoteMeta.value.taxType
+                        };
 
-				const previewHistory = (record) => {
-					printModeData.value = record;
-					currentTab.value = 'home';
-				};
+                        alert(`雲端工程複合估價單建檔成功！單號：${quote_number}`);
+                        await fetchHistory();
 
-				const triggerPrint = () => { window.print(); };
+                        quoteMeta.value = { customerName: '', issuer: '', summary: '' };
+                        quotationGroups.value = [{ groupName: '基礎工程欄位', items: [{ type: 'product', supplierId: '', productId: '', quantity: 1, price: 0, searchQuery: '', customName: '', showDropdown: false }] }];
+                    } catch (err) { alert('雲端儲存失敗: ' + err.message); }
+                };
 
-				const numToChinese = (num) => {
-					if (isNaN(num)) return "";
-					const digit = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖'];
-					const unit = [['元', '萬', '億'], ['', '拾', '佰', '仟']];
-					let s = ''; let numInt = Math.floor(num);
-					for (let i = 0; i < unit[0].length && numInt > 0; i++) {
-						let p = '';
-						for (let j = 0; j < unit[1].length && numInt > 0; j++) {
-							p = digit[numInt % 10] + unit[1][j] + p;
-							numInt = Math.floor(numInt / 10);
-						}
-						s = p.replace(/(零.)*零$/, '').replace(/^$/, '零') + unit[0][i] + s;
-					}
-					s = s.replace(/(零.)*零元/, '元').replace(/(零.)+/g, '零');
-					return s == '' ? '零元整' : s + '整';
-				};
+                // --- 資料庫維護基礎 CRUD (直連 Supabase) ---
+                const addSupplier = () => {
+                    if (!newSupplier.value.name.trim()) return alert('請填寫廠商名稱');
+                    modal.value = {
+                        show: true, title: '建立供應商確認 (雲端)',
+                        content: { '廠商名稱': newSupplier.value.name, '電話': newSupplier.value.phone, '地址': newSupplier.value.address },
+                        onConfirm: async () => {
+                            const { data, error } = await db.from('suppliers').insert([newSupplier.value]).select();
+                            if (error) return alert('新增失敗: ' + error.message);
+                            suppliers.value.push(data[0]);
+                            newSupplier.value = { name: '', phone: '', address: '' };
+                        }
+                    };
+                };
 
-				const closeModal = (isConfirmed) => {
-					if (isConfirmed && modal.value.onConfirm) modal.value.onConfirm();
-					modal.value.show = false;
-				};
+                const addProduct = () => {
+                    if (!newProdSupplierId.value || !newProdCategory.value.trim() || !newProdName.value.trim() || newProdPrice.value <= 0) return alert('請完整填寫欄位');
+                    modal.value = {
+                        show: true, title: '建立新產品確認 (雲端)',
+                        content: { '所屬廠商': getSupplierName(parseInt(newProdSupplierId.value)), '類型': newProdCategory.value, '品名': newProdName.value, '單價': `$${newProdPrice.value}` },
+                        onConfirm: async () => {
+                            const { data, error } = await db.from('products').insert([{
+                                supplier_id: parseInt(newProdSupplierId.value),
+                                category: newProdCategory.value.trim(),
+                                name: newProdName.value.trim(),
+                                price: newProdPrice.value
+                            }]).select();
+                            if (error) return alert('新增失敗: ' + error.message);
+                            products.value.push(data[0]);
+                            newProdCategory.value = ''; newProdName.value = ''; newProdPrice.value = 0;
+                        }
+                    };
+                };
 
-				// 💡 修正 3：此 return 物件中「不包含」全域的 supabase 變數，完美避免變數衝突與 SyntaxError
-				return {
-					currentTab, suppliers, products, historyRecords, quotationItems, selectedCategory, categories, totalAmount, validQuotationItems, printModeData,
-					newSupplier, newProdSupplierId, newProdCategory, newProdName, newProdPrice, modal, 
-					currentDate: new Date().toLocaleDateString(),
-					getAvailableProducts, onSupplierChange, getFilteredProducts, selectRecommendedProduct, calculateSubtotal, getSupplierName, getProductNameById, getProductCategoryById, sortedComparisonProducts,
-					addNewItem, removeItem, saveQuotation, addSupplier, addProduct, updateSupplier, deleteSupplier, updateProduct, deleteProduct, previewHistory, triggerPrint, numToChinese, closeModal, fetchHistory, quoteMeta,
-					hideDropdownWithDelay, dateFilter, clearDateFilter, filteredHistoryRecords
-				};
-			}
-		}).mount('#app');
-	</script>
+                const updateSupplier = (sup) => {
+                    modal.value = {
+                        show: true, title: '儲存供應商修改 (雲端)',
+                        content: { '廠商名稱': sup.name, '電話': sup.phone, '地址': sup.address },
+                        onConfirm: async () => {
+                            const { error } = await db.from('suppliers').update({ name: sup.name, phone: sup.phone, address: sup.address }).eq('id', sup.id);
+                            if (error) return alert('修改失敗: ' + error.message);
+                            alert('雲端變更成功！');
+                        }
+                    };
+                };
+
+                const deleteSupplier = (id) => {
+                    modal.value = {
+                        show: true, title: '⚠️ 警告：永久刪除供應商',
+                        content: { '注意': '將會從雲端永久移除此供應商', '廠商名稱': getSupplierName(id) },
+                        onConfirm: async () => {
+                            const { error } = await db.from('suppliers').delete().eq('id', id);
+                            if (error) return alert('刪除失敗: ' + error.message);
+                            suppliers.value = suppliers.value.filter(s => s.id !== id);
+                        }
+                    };
+                };
+
+                const updateProduct = (prod) => {
+                    modal.value = {
+                        show: true, title: '儲存產品修改 (雲端)',
+                        content: { '品名': prod.name, '類型': prod.category, '新單價': `$${prod.price}` },
+                        onConfirm: async () => {
+                            const { error } = await db.from('products').update({ name: prod.name, category: prod.category, price: prod.price }).eq('id', prod.id);
+                            if (error) return alert('修改失敗: ' + error.message);
+                            alert('雲端變更成功！');
+                        }
+                    };
+                };
+
+                const deleteProduct = (id) => {
+                    const prod = products.value.find(p => p.id === id);
+                    modal.value = {
+                        show: true, title: '⚠️ 確定要從雲端刪除該產品嗎？',
+                        content: { '產品品名': prod ? prod.name : '未知產品' },
+                        onConfirm: async () => {
+                            const { error } = await db.from('products').delete().eq('id', id);
+                            if (error) return alert('刪除失敗: ' + error.message);
+                            products.value = products.value.filter(p => p.id !== id);
+                        }
+                    };
+                };
+
+                const previewHistory = (record) => {
+                    printModeData.value = record;
+                    currentTab.value = 'home';
+                };
+
+                const triggerPrint = () => { window.print(); };
+
+                const numToChinese = (num) => {
+                    if (isNaN(num)) return "";
+                    const digit = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖'];
+                    const unit = [['元', '萬', '億'], ['', '拾', '佰', '仟']];
+                    let s = ''; let numInt = Math.floor(num);
+                    for (let i = 0; i < unit[0].length && numInt > 0; i++) {
+                        let p = '';
+                        for (let j = 0; j < unit[1].length && numInt > 0; j++) {
+                            p = digit[numInt % 10] + unit[1][j] + p;
+                            numInt = Math.floor(numInt / 10);
+                        }
+                        s = p.replace(/(零.)*零$/, '').replace(/^$/, '零') + unit[0][i] + s;
+                    }
+                    s = s.replace(/(零.)*零元/, '元').replace(/(零.)+/g, '零');
+                    return s == '' ? '零元整' : s + '整';
+                };
+
+                const closeModal = (isConfirmed) => {
+                    if (isConfirmed && modal.value.onConfirm) modal.value.onConfirm();
+                    modal.value.show = false;
+                };
+
+                return {
+                    currentTab, suppliers, products, historyRecords, quotationGroups, selectedCategory, categories, totalAmount, filteredQuotationGroups, printModeData,
+                    newSupplier, newProdSupplierId, newProdCategory, newProdName, newProdPrice, modal,
+                    currentDate: new Date().toLocaleDateString(),
+                    getAvailableProducts, onSupplierChange, onTypeChange, getFilteredProducts, selectRecommendedProduct, calculateSubtotal, getSupplierName, getProductNameById, getProductCategoryById, sortedComparisonProducts,
+                    addNewGroup, removeGroup, addNewItem, removeItem, saveQuotation, addSupplier, addProduct, updateSupplier, deleteSupplier, updateProduct, deleteProduct, previewHistory, triggerPrint, numToChinese, closeModal, fetchHistory, quoteMeta,
+                    hideDropdownWithDelay, dateFilter, clearDateFilter, filteredHistoryRecords,profitSummary,historyProfitSummary,getProductPriceById
+                };
+            }
+        }).mount('#app');
+    </script>
 </body>
 </html>
